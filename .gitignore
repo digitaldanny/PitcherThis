@@ -1,3 +1,6 @@
+# MATLAB generated autosaves
+*.asv
+
 # Prerequisites
 *.d
 
