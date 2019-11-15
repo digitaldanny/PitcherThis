@@ -1,0 +1,27 @@
+% +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+
+% SCRIPT SUMMARY:
+% Sample input audio at Fs = 48KHz, perform a 512 point FFT, perform a 
+% 512 point IFFT, and output the resulting audio. The goal is to test that
+% this doesn't cause any unexpected distortion to the signal.
+% +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+
+
+FS          = 48000;
+FFT_SIZE    = 512;
+FILE        = 'ShortSoundTest.mp3';
+
+% +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+% SCRIPT BEGIN
+% +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+% sample the audio at 48 KHzz
+[audio,fsOriginal] = audioread(FILE);
+audio48kHz = resample(audio,fsOriginal, FS);
+
+% perform the 512-point FFT/IFFT on the audio.
+audioProcessed = [];
+for n = 1:FFT_SIZE:length(audio48kHz)
+    fftSamples = fft(audio48kHz, FFT_SIZE);
+    audioProcessed = [audioProcessed ifft(fftSamples, FFT_SIZE);
+end
+
+sound(output,FS);                   % test the filtered output
