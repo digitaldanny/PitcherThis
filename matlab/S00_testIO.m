@@ -5,6 +5,9 @@
 %
 % The goal is to test that this doesn't cause any unexpected distortion to 
 % the signal.
+%
+% COMMANDS:
+% bigfft - performs an 8192 point FFT on most recently processed audio.
 % +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+
 close all
 clear all
@@ -24,15 +27,17 @@ FREQ_RES        = 93.75;
 % 'PureTone' -> from generated sine wave
 % 'MultiTone' -> from generated sine wave with multiple sinusoids
 % +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-SOURCE      = 'PureTone';
-FS          = 48000;
-FFT_SIZE    = 512;
-FILE        = 'MiddleC.mp3';
-START       = 1.25;
-END         = 2.25;
-HANNING     = 1;
-GEN_FREQ    = 375;
-FUNCTION    = 'pitchShift513V2';
+SOURCE          = 'PureTone';
+FS              = 48000;                % sampling frequency used by Codec
+FFT_SIZE        = 512;                  % 93.75 Hz resolution models DSP board
+BIG_FFT_SIZE    = 8192;                 % 5.86 Hz resolution for checking pitch shifting performance
+DISPLAY_BIG_FFT = 0;                    % displaying a plot of the big fft takes a long time
+FILE            = 'MiddleC.mp3';
+START           = 1.25;
+END             = 2.25;
+HANNING         = 1;
+GEN_FREQ        = 375;
+FUNCTION        = 'pitchShift513V3';
 
 % +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 % SCRIPT BEGIN
@@ -60,56 +65,116 @@ end
 
 % figure data for plotting new FFT data
 fgh = figure(); % create a figure
-f = 0:2*FFT_SIZE;
-plotHandle = plot(f,0);
-xlabel('Frequency (in hertz)');
-title('Magnitude Response');
+f = 0:FFT_SIZE;
+f2 = 0:BIG_FFT_SIZE;
 
+% set up the plots for board/big fft spectrums
+if DISPLAY_BIG_FFT
+    subplot(2,1,1);
+end
+plotHandleSmall = plot(f,0);
+xlabel('Frequency (in hertz)');
+title('Board FFT Magnitude Response');
+
+plotHandleBig = [];
+if DISPLAY_BIG_FFT
+    subplot(2,1,2);
+    plotHandleBig = plot(f2,0);
+    xlabel('Frequency (in hertz)');
+    title('Big FFT Magnitude Response');
+end
+  
 % prompt user to input shift amount, then press ENTER to run once
 while(1)
+    shift = 0;
     sumOfProcessedBins = zeros(1, FFT_SIZE);
-    shift = input('PITCH SHIFT (93.7 Hz): ');
+    bigbins = zeros(1, BIG_FFT_SIZE);
+    bigHanning = hanning(BIG_FFT_SIZE);
     
-    disp("Playing original audio..");
-    sound(real(audio48KHzMono),FS); % test the filtered output data
-    pause(END - START + 0.25); % wait for the audio to finish playing before starting the processed audio
-    clear sound
-    disp("-------------------------");
+    response = input('PITCH SHIFT (93.7 Hz): ', 's');
+    
+    if strcmp(response, 'bigfft')
+        % PERFORM AN 8192 POINT FFT ON THE MOST RECENT PROCESSED AUDIO
+        % AND PLOT
+        bigFftResolution = FS / BIG_FFT_SIZE;
 
-    % perform the 512-point FFT/IFFT on the audio.
-    audioProcessed = zeros(1, length(audio48KHzMono));
-    try
-        for n = 1:FFT_SIZE-1:length(audio48KHzMono)
-            nRange = (n:n+FFT_SIZE-1);
-
-            % FFT with hamming window ----------------------------
-            winvec = hanning(FFT_SIZE);
-            
-            % perform FFT with or without hamming window
-            if HANNING == 0
-                winvec = 1;
+        % perform large FFT with hanning window / plot spectrum
+        try
+            for n = 1:length(audioProcessed)
+                nRange = n:n+BIG_FFT_SIZE-1;
+                bigbins = bigbins + fft(audioProcessed(nRange).*bigHanning', BIG_FFT_SIZE); 
             end
-            
-            bins = fft(audio48KHzMono(nRange).*winvec', FFT_SIZE);
-            
-            % pitch shift ----------------------------------------
-            %processedBins = feval(FUNCTION, bins, shift); % calls function defined in FUNCTION configuration variable
-            processedBins = pitchShift512V3(bins, shift);
-            
-            % IFFT -----------------------------------------------
-            audioProcessed(nRange)= ifft(processedBins, FFT_SIZE);
-            sumOfProcessedBins = sumOfProcessedBins + processedBins; % store total energy of the sample
+        catch
+            disp("Processed audio length != multiple of BIG_FFT_SIZE");
         end
-    catch
-       disp("Length of audio sample array is != multiple of 512")
-    end
+        
+        if DISPLAY_BIG_FFT
+            set(plotHandleBig,...
+                'XData', bigFftResolution*(0:BIG_FFT_SIZE/2-1),... 
+                'YData', real(bigbins(1:BIG_FFT_SIZE/2)))
+        end
+        
+        % determine what the max frequency is
+        maxMag = 0;
+        maxBin = 0;
+        for i = 1:BIG_FFT_SIZE/2 - 1
+            nextMag = abs(bigbins(i));
+            
+            if nextMag > maxMag
+                maxMag = nextMag;
+                maxBin = i; 
+            end
+        end
+        
+        % wait for user response
+        fprintf('Max frequency: %f Hz\n', maxBin*bigFftResolution);
+        input('Click ENTER to continue..');
+        
+    else
+        % SHIFT THE INPUT AUDIO BY INPUT STEP
+        shift = str2double(response);
     
-	% plot the final processed bins (orange) vs the original bins (blue)
-	set(plotHandle,...
-        'XData', fftResolution*(0:length(sumOfProcessedBins)-1),... 
-        'YData', real(sumOfProcessedBins))
+        disp("Playing original audio..");
+        sound(real(audio48KHzMono),FS); % test the filtered output data
+        pause(END - START + 0.25); % wait for the audio to finish playing before starting the processed audio
+        clear sound
+        disp("-------------------------");
 
-    disp("Playing processed audio..");
-    sound(real(audioProcessed),FS); % test the filtered output data
-    disp("-------------------------");
+        % perform the 512-point FFT/IFFT on the audio.
+        audioProcessed = zeros(1, length(audio48KHzMono));
+        try
+            for n = 1:FFT_SIZE-1:length(audio48KHzMono)
+                nRange = (n:n+FFT_SIZE-1);
+
+                % FFT with hamming window ----------------------------
+                winvec = hanning(FFT_SIZE);
+
+                % perform FFT with or without hamming window
+                if HANNING == 0
+                    winvec = 1;
+                end
+
+                bins = fft(audio48KHzMono(nRange).*winvec', FFT_SIZE);
+
+                % pitch shift ----------------------------------------
+                %processedBins = feval(FUNCTION, bins, shift); % calls function defined in FUNCTION configuration variable
+                processedBins = pitchShift512V3(bins, shift);
+
+                % IFFT -----------------------------------------------
+                audioProcessed(nRange)= ifft(processedBins, FFT_SIZE);
+                sumOfProcessedBins = sumOfProcessedBins + processedBins; % store total energy of the sample
+            end
+        catch
+           disp("Length of audio sample array is != multiple of 512")
+        end
+
+        % plot the final processed bins (orange) vs the original bins (blue)
+        set(plotHandleSmall,...
+            'XData', fftResolution*(0:FFT_SIZE/2-1),... 
+            'YData', real(sumOfProcessedBins(1:FFT_SIZE/2)))
+
+        disp("Playing processed audio..");
+        sound(real(audioProcessed),FS); % test the filtered output data
+        disp("-------------------------");
+    end
 end

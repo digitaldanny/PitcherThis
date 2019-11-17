@@ -32,18 +32,32 @@ function [processed] = pitchShift512V3(bins, shift)
         % positive shift starts from beginning of array and increments
         % forward.
         for n = 1:len/2-2
-            processed(n)    = processed(n) + ((RES - shift)/RES * bins(n)); % adjust current bin
-            processed(n+1)  = processed(n+1) + (shift/RES * bins(n));       % adjust next bin
+            
+            % find indices of the two bins to adjust
+            nTargetF    = (n*RES + shift)/RES; % array index between two real values
+            nL          = floor(nTargetF);
+            nR          = ceil(nTargetF);
+            
+            % find the coefficients to multiply the original magnitude by
+            % for the shifted bins.
+            coefX       = (n*RES + shift - nL*RES)/RES;
+            coefL       = 1 - coefX;
+            coefR       = coefX;
+            
+            % adjust the magnitudes for the two nearest bins in order to
+            % interpolate the 'targeted bin'
+            processed(nL) = processed(nL) + coefL * bins(n);
+            processed(nR) = processed(nR) + coefR * bins(n);
+
         end
         
-    else
+    elseif shift < 0
         
         % negative shift starts from end of array and decrements backwards.
-        for n = len/2-1 : -1 : 2
-            processed(n)    = processed(n) + ((RES + shift)/RES * bins(n)); % adjust current bin
-            processed(n-1)  = processed(n-1) + (abs(shift)/RES * bins(n));  % adjust previous bin
-        end
-        
+        disp("ERROR (pitchShift512V3): NEGATIVE PITCH SHIFTING NOT IMPLEMENTED");
+       
+    else
+        processed = bins;
     end
     
     % zero out the frequency bins for k > fs/2.
