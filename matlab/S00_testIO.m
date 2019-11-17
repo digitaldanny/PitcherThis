@@ -32,7 +32,7 @@ START       = 1.25;
 END         = 2.25;
 HANNING     = 1;
 GEN_FREQ    = 375;
-FUNCTION    = 'pitchShift512V2';
+FUNCTION    = 'pitchShift513V2';
 
 % +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 % SCRIPT BEGIN
@@ -93,13 +93,8 @@ while(1)
             bins = fft(audio48KHzMono(nRange).*winvec', FFT_SIZE);
             
             % pitch shift ----------------------------------------
-            if strcmp(FUNCTION, 'pitchShift512V1')
-                processedBins = pitchShift512V1(bins, shift); 
-            elseif strcmp(FUNCTION, 'pitchShift512V2')
-                processedBins = pitchShift512V2(bins, shift);     
-            else
-                fprintf('%s does not exist!!', FUNCTION);
-            end
+            %processedBins = feval(FUNCTION, bins, shift); % calls function defined in FUNCTION configuration variable
+            processedBins = pitchShift512V3(bins, shift);
             
             % IFFT -----------------------------------------------
             audioProcessed(nRange)= ifft(processedBins, FFT_SIZE);
