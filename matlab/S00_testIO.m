@@ -35,9 +35,9 @@ DISPLAY_BIG_FFT = 0;                    % displaying a plot of the big fft takes
 FILE            = 'MiddleC.mp3';
 START           = 1.25;
 END             = 2.25;
-HANNING         = 1;
 GEN_FREQ        = 375;
-FUNCTION        = 'pitchShift513V3';
+FUNCTION        = 'pitchShift512V3';
+OVERLAY         = 0.5;
 
 % +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 % SCRIPT BEGIN
@@ -100,7 +100,7 @@ while(1)
 
         % perform large FFT with hanning window / plot spectrum
         try
-            for n = 1:length(audioProcessed)
+            for n = 1:BIG_FFT_SIZE:length(audioProcessed)
                 nRange = n:n+BIG_FFT_SIZE-1;
                 bigbins = bigbins + fft(audioProcessed(nRange).*bigHanning', BIG_FFT_SIZE); 
             end
@@ -140,28 +140,53 @@ while(1)
         clear sound
         disp("-------------------------");
 
-        % perform the 512-point FFT/IFFT on the audio.
+        % perform the 512-point FFT/IFFT on the audio with a 50% overlay sliding window.
         audioProcessed = zeros(1, length(audio48KHzMono));
+        overlayBuffer = zeros(1, FFT_SIZE);         % contains previous FFT_SIZE/2 samples
+        
+        winvec = hanning(FFT_SIZE);                 % 512 point hanning window
+        
+        nFirstHalf  = 1            : FFT_SIZE/2;    % range for the first 256 samples of 512 sample frame
+        nLastHalf   = FFT_SIZE/2+1 : FFT_SIZE;      % range for the last 256 samples of 512 sample frame
+        
         try
-            for n = 1:FFT_SIZE-1:length(audio48KHzMono)
+            for n = 1:FFT_SIZE:length(audio48KHzMono)
+                
+                % capture next 512 burst DMA transfer (models real time
+                % application).
                 nRange = (n:n+FFT_SIZE-1);
+                frame = audio48KHzMono(nRange);
+                
+                % ---------------------------------------------------------
+                % FIRST SLIDING WINDOW ITERATION
+                % Capture the first half of the new samples to perform
+                % first FFT.
+                % ---------------------------------------------------------
+                overlayBuffer(nLastHalf) = frame(nFirstHalf); % next 256 samples from DMA frame
+                bins1 = abs(fft(overlayBuffer.*winvec', FFT_SIZE));
+                overlayBuffer(nFirstHalf) = overlayBuffer(nLastHalf); % processed samples become the old samples
+                
+                % ---------------------------------------------------------
+                % SECOND SLIDING WINDOW ITERATION
+                % Capture the second half of the new samples to perform 
+                % second FFT.
+                % ---------------------------------------------------------
+                overlayBuffer(nLastHalf) = frame(nLastHalf); % next 256 samples from DMA frame
+                bins2 = abs(fft(overlayBuffer.*winvec', FFT_SIZE));
+                overlayBuffer(nFirstHalf) = overlayBuffer(nLastHalf); % processed samples become the old samples
+                
+                bins = (bins1 + bins2)/2; % average the two FFT bins
+                
+                % ---------------------------------------------------------
+                % APPLICATION PROCESSING (Pitch shift, autotune, etc.)
+                % ---------------------------------------------------------
+                processedBins = feval(FUNCTION, bins, shift);
 
-                % FFT with hamming window ----------------------------
-                winvec = hanning(FFT_SIZE);
-
-                % perform FFT with or without hamming window
-                if HANNING == 0
-                    winvec = 1;
-                end
-
-                bins = fft(audio48KHzMono(nRange).*winvec', FFT_SIZE);
-
-                % pitch shift ----------------------------------------
-                %processedBins = feval(FUNCTION, bins, shift); % calls function defined in FUNCTION configuration variable
-                processedBins = pitchShift512V3(bins, shift);
-
-                % IFFT -----------------------------------------------
+                % ---------------------------------------------------------
+                % IFFT
+                % ---------------------------------------------------------
                 audioProcessed(nRange)= ifft(processedBins, FFT_SIZE);
+                
                 sumOfProcessedBins = sumOfProcessedBins + processedBins; % store total energy of the sample
             end
         catch
@@ -171,7 +196,7 @@ while(1)
         % plot the final processed bins (orange) vs the original bins (blue)
         set(plotHandleSmall,...
             'XData', fftResolution*(0:FFT_SIZE/2-1),... 
-            'YData', real(sumOfProcessedBins(1:FFT_SIZE/2)))
+            'YData', abs(real(sumOfProcessedBins(1:FFT_SIZE/2))))
 
         disp("Playing processed audio..");
         sound(real(audioProcessed),FS); % test the filtered output data
