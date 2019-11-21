@@ -22,22 +22,22 @@ PAGE 1 :
 
    RAMLS5      : origin = 0x00A800, length = 0x000800
 
-   RAMGS0      : origin = 0x00C000, length = 0x001000
-   RAMGS1      : origin = 0x00D000, length = 0x001000
-   RAMGS2      : origin = 0x00E000, length = 0x001000
+   RAMGS0      : origin = 0x00C000, length = 0x003000
+   // RAMGS1      : origin = 0x00D000, length = 0x001000
+   // RAMGS2      : origin = 0x00E000, length = 0x001000
    RAMGS3      : origin = 0x00F000, length = 0x001000
-   RAMGS4      : origin = 0x010000, length = 0x001000
-   RAMGS5      : origin = 0x011000, length = 0x001000
+   RAMGS4      : origin = 0x010000, length = 0x002000
+   // RAMGS5      : origin = 0x011000, length = 0x001000
    RAMGS6      : origin = 0x012000, length = 0x001000
    RAMGS7      : origin = 0x013000, length = 0x001000
    RAMGS8      : origin = 0x014000, length = 0x001000
    RAMGS9      : origin = 0x015000, length = 0x001000
-   RAMGS10     : origin = 0x016000, length = 0x001000
-   RAMGS11     : origin = 0x017000, length = 0x001000
-   RAMGS12     : origin = 0x018000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
-   RAMGS13     : origin = 0x019000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
-   RAMGS14     : origin = 0x01A000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
-   RAMGS15     : origin = 0x01B000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
+   RAMGS10     : origin = 0x016000, length = 0x002000
+   // RAMGS11     : origin = 0x017000, length = 0x001000
+   RAMGS12     : origin = 0x018000, length = 0x002000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
+   // RAMGS13     : origin = 0x019000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
+   RAMGS14     : origin = 0x01A000, length = 0x002000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
+   // RAMGS15     : origin = 0x01B000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
 
    CPU2TOCPU1RAM   : origin = 0x03F800, length = 0x000400
    CPU1TOCPU2RAM   : origin = 0x03FC00, length = 0x000400
@@ -74,15 +74,15 @@ SECTIONS
    	// Filter_RegsFile  : > RAMGS0,	   PAGE = 1
 
 	// this is used to store the ping-pong buffers for DMA access
-   DMAACCESSABLE	: > RAMGS0 | RAMGS1 | RAMGS2, PAGE = 1 // 12k bytes
+   DMAACCESSABLE	: > RAMGS0, PAGE = 1 // | RAMGS1 | RAMGS2, PAGE = 1 // 12k bytes
 
    	// MONOSAMPLES 		: > RAMGS0 | RAMGS1 | RAMGS14 |  RAMGS15, 	PAGE = 1 //, ALIGN(1024) // align 4*sizeOfFft
 
 	// alignment must be 4*fftSize (ex. 4*256 point FFT = 1024 alignment)
-   CFFTdata1		: > RAMGS4 | RAMGS5, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
-   CFFTdata2		: > RAMGS14 | RAMGS15, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
-   CFFTdata3		: > RAMGS10 | RAMGS11, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
-   CFFTdata4		: > RAMGS12 | RAMGS13, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
+   CFFTdata1		: > RAMGS4 , PAGE = 1 // | RAMGS5, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
+   CFFTdata2		: > RAMGS14, PAGE = 1 // | RAMGS15, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
+   CFFTdata3		: > RAMGS10, PAGE = 1 // | RAMGS11, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
+   CFFTdata4		: > RAMGS12, PAGE = 1 // | RAMGS13, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
 
 #ifdef __TI_COMPILER_VERSION__
    #if __TI_COMPILER_VERSION__ >= 15009000
