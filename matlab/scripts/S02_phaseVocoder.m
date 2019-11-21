@@ -24,13 +24,13 @@ FREQ_RES        = 93.75;
 % 'None'
 % +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 FS              = 48000;                % sampling frequency used by Codec
-FFT_SIZE        = 512;                  % 93.75 Hz resolution models DSP board
+FFT_SIZE        = 1024;                  % 93.75 Hz resolution models DSP board
 BIG_FFT_SIZE    = 16384;                % 2.93 Hz resolution for checking pitch shifting performance
-FILE            = 'ShortSoundTest.mp3';
-START           = 0.25;
+FILE            = 'MiddleC.mp3';
+START           = 1.25;
 END             = 1.75;
 GEN_FREQ        = FREQ_MIDDLE_C;
-MODE            = 'Auto';
+MODE            = 'Manual';
 APPROX_METHOD   = 'None';
 MIN_STEP        = -12;
 MAX_STEP        = 12;
