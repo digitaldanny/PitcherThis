@@ -47,7 +47,8 @@
 typedef struct frame
 {
     int16 buffer[2*CFFT_SIZE];      // buffer is large enough LR or mono processing
-    struct frame * nextFrame;         // points to the next frame for processing
+    struct frame * prevFrame;       // points to the previous frame
+    struct frame * nextFrame;       // points to the next frame
 } frame_t;
 
 typedef struct polar
@@ -86,9 +87,10 @@ volatile Uint16 LR_received;
 // ping pong buffers
 #pragma DATA_SECTION(frames, "DMAACCESSABLE")    // DMA-accessible RAM
 volatile Uint16 dma_flag;   // notifies program to begin dft computation
-frame_t frames[2];          // 2 buffers for ping-ponging processing and sampling
+frame_t frames[3];          // 3 buffers for ping-pong-panging sampling, processing, and outputting
+frame_t * inFrame;          // points at the frame to store new values
 frame_t * fftFrame;         // points at the frame to be processed
-frame_t * storeFrame;       // points at the frame to store new values
+frame_t * outFrame;         // points at the frame to output
 polar_t testPointMax;
 #if defined(PT1) || defined(PT2)
 float bin[NUM_DFT_BINS];    // stores result of dft256 function
@@ -123,8 +125,32 @@ CFFT_F32_STRUCT cfft;
  */
 void main()
 {
-    // ---------------------------------------------------------------------------------------
+    // *************************************************************************
+    // INITIALIZE GLOBALS
+    // ------------------------------------------------------------------------
+    frames[0].nextFrame     = &frames[1];
+    frames[1].nextFrame     = &frames[2];
+    frames[2].nextFrame     = &frames[0];
 
+    frames[0].prevFrame     = &frames[2];
+    frames[1].prevFrame     = &frames[0];
+    frames[2].prevFrame     = &frames[1];
+
+    inFrame                 = &frames[0];   // first buffer to be filled with samples
+    fftFrame                = &frames[1];   // first buffer to be processed
+    outFrame                = &frames[2];   // first buffer to output processed samples
+
+    cfft.CoefPtr            = CFFTF32Coef;   //Twiddle factor table
+    cfft.Stages             = CFFT_STAGES;
+    cfft.FFTSize            = CFFT_SIZE;
+
+    dma_flag                = 0;
+    // ------------------------------------------------------------------------
+
+
+    // *************************************************************************
+    // HARDWARE INITIALIZATIONS
+    // ------------------------------------------------------------------------
     DINT;  // Enable Global interrupt INTM
     DRTM;  // Enable Global realtime interrupt DBGM
 
@@ -133,7 +159,7 @@ void main()
     InitPieVectTable(); // set PIE vectors to default shell ISRs
 
     // sets up codec and processor for sampling at 48 KHz
-    initDmaPingPong(&frames[0].buffer[0], &frames[1].buffer[0], CFFT_SIZE, &DMA_FRAME_COMPLETE_ISR);
+    initDmaPingPong(&inFrame->buffer[0], &outFrame->buffer[0], CFFT_SIZE, &DMA_FRAME_COMPLETE_ISR);
     initCodec(CODEC_MCBSPB_INT_DIS);
 
     // Enable global Interrupts and higher priority real-time debug events:
@@ -145,30 +171,17 @@ void main()
     lcdRow1();
     lcdString((Uint16 *)&s1);
 
-    // ---------------------------------------------------------------------------------------
-
-    cfft.CoefPtr = CFFTF32Coef;             //Twiddle factor table
-    cfft.Stages = CFFT_STAGES;              // FFT stages
-    cfft.FFTSize = CFFT_SIZE;               // FFT size
-    CFFT_f32_sincostable(&cfft);            // Calculate twiddle factor
-
-    // **************************************************//
-    // initialize globals                                //
-    // **************************************************//
-    frames[0].nextFrame     = &frames[1];                //
-                                                         //
-    frames[1].nextFrame     = &frames[0];                //
-                                                         //
-    fftFrame                = &frames[0];                //
-    dma_flag                = 0;                         //
-    // **************************************************//
-
-    // ---------------------------------------------------------------------------------------
+    CFFT_f32_sincostable(&cfft); // Calculate twiddle factor
+    // ------------------------------------------------------------------------
 
     while(1)
     {
         if (dma_flag)
         {
+
+            // *************************************************************************
+            // CFFT STRUCT SETUP
+            // ------------------------------------------------------------------------
             cfft.InPtr = CFFTin1Buff;  //Input/output or middle stage of ping-pong buffer
             cfft.OutPtr = CFFToutBuff; //Output or middle stage of ping-pong buffer
 
@@ -182,19 +195,25 @@ void main()
                 CFFTin1Buff[i] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f; // real
                 CFFTin1Buff[i+1] = 0.0f; // imaginary
             }
+            // *************************************************************************
 
-            // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+            // *************************************************************************
             // PROCESSING LAYER
-            // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+            // ------------------------------------------------------------------------
             CFFT_f32(&cfft);
             // CFFT_f32s_mag(&cfft);
             cfft.InPtr  = CFFToutBuff;        // ICFFT input pointer
             cfft.OutPtr = CFFTin1Buff;        // ICFFT output pointer
-            ICFFT_f32(&cfft);              // Calculate the ICFFT
-            // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+            ICFFT_f32(&cfft);                 // Calculate the ICFFT
 
-            // next frame to be processed
-            fftFrame = fftFrame->nextFrame;
+            // save the valid real parts of the icfft
+            for (int i = 0; i < (CFFT_SIZE>>2); i++)
+            {
+                fftFrame->buffer[i] = (int16)cfft.CurrentOutPtr[4*i + 1];
+            }
+            // *************************************************************************
+
             dma_flag = 0;
         }
     }
@@ -299,8 +318,16 @@ __interrupt void DMA_FRAME_COMPLETE_ISR(void)
     PieCtrlRegs.PIEACK.all |= PIEACK_GROUP7; // ACK to receive more interrupts from this PIE groups
     EDIS;
 
-    pingPong();     // switch buffer end-points on DMA channels
-    dma_flag = 1;   // used in program to trigger DFT calculations
+    // rotate input buffers
+    inFrame = inFrame->prevFrame;    // previous OUT
+    fftFrame = fftFrame->prevFrame;  // previous IN
+    outFrame = outFrame->prevFrame;  // previous FFT
+
+    // switch buffer end-points on DMA channels
+    pingPongPang(&inFrame->buffer[0], &outFrame->buffer[0]);
+
+    // trigger application processing
+    dma_flag = 1;
 
     startDmaChannels();
 }

@@ -332,12 +332,12 @@ void AIC23MaxIOGain(void)
 {
     // amplify the input lines to the max volume
     Uint16 command = linput_volctl(0x1F);
-    BitBangedCodecSpiTransmit (command);
-    SmallDelay();
-
-    command = rinput_volctl(0x1F);
-    BitBangedCodecSpiTransmit (command);
-    SmallDelay();
+    // BitBangedCodecSpiTransmit (command);
+    // SmallDelay();
+    //
+    // command = rinput_volctl(0x1F);
+    // BitBangedCodecSpiTransmit (command);
+    // SmallDelay();
 
     // amplify the headphone lines to the max volume
     command = lhp_volctl(0x7F);

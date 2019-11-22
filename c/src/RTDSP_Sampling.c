@@ -225,3 +225,22 @@ void pingPong(void)
     DmaRegs.CH5.SRC_ADDR_SHADOW     = txAddr;
     EDIS;
 }
+
+/*
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ * SUMMARY: pingPongPang
+ * Change the DMA source and destination addresses.
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ */
+void pingPongPang(int16 * in, int16 * out)
+{
+    EALLOW;
+
+    // Set up the RECEIVE buffer address:
+    DmaRegs.CH6.DST_ADDR_SHADOW     = (Uint32)in;
+
+    // Set up TRANSFER buffer address:
+    DmaRegs.CH5.SRC_ADDR_SHADOW     = (Uint32)out;
+
+    EDIS;
+}
