@@ -1,120 +1,185 @@
+//#############################################################################
+//
+// FILE:    F2837xD_FPU_ICFFT_lnk.cmd
+//
+// TITLE:   Linker Command File for FPU library examples that run
+//          on the 2837x platform
+//
+//          This file includes all RAM and FLASH blocks present on the
+//          2837x and depending on the active build configuration(RAM or FLASH)
+//          the appropriate sections will either be loaded into RAM or FLASH
+//          blocks
+//
+//#############################################################################
+// $TI Release: C28x Floating Point Unit Library V2.01.00.00 $
+// $Release Date: May 27, 2019 $
+// $Copyright: Copyright (C) 2018 Texas Instruments Incorporated -
+//             http://www.ti.com/ ALL RIGHTS RESERVED $
+//#############################################################################
+// NOTES:
+// 1. In addition to this memory linker command file, add the header linker
+//    command file directly to the project. The header linker command file is
+//    required to link the peripheral structures to the proper locations within
+//    the memory map.
+//
+//    The header linker files are found in
+//    c2000\C2000Ware_X_XX_XX_XX\device_support\f2837x(d/s)\headers\cmd
+//
+//    For BIOS applications add:      F2837x(D/S)_Headers_BIOS_cpuX.cmd
+//    For nonBIOS applications add:   F2837x(D/S)_Headers_nonBIOS_cpuX.cmd
+//
+// 2. On reset all RAMGSx blocks are under the mastership of CPU1. The user
+//     must configure the appropriate control registers to transfer mastership
+//     of a RAMGSx block over to CPU2
+//
+// 3. Memory blocks on F2837x are uniform (ie same physical memory) in both
+//    PAGE 0 and PAGE 1. That is the same memory region should not be defined
+//    for both PAGE 0 and PAGE 1. Doing so will result in corruption of program
+//    and/or data.
+//
+//    Contiguous SARAM memory blocks can be combined if required to create a
+//    larger memory block.
+//
+//#############################################################################
+
+
+// The following definitions will help to align the input buffer.For the complex FFT
+// of size N, the input buffer must be aligned to a 4N word boundary. For a real FFT
+// of size N, the input buffer must be aligned to a 2N word boundary. The user may define
+// the macro either in the linker command file, as shown here, or
+// through the project properties under,
+// C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
+--define CFFT_ALIGNMENT=2048
+--define RAM
+#if !defined(CFFT_ALIGNMENT)
+#error define CFFT_ALIGNMENT under C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
+#endif
 
 MEMORY
 {
 PAGE 0 :
    /* BEGIN is used for the "boot to SARAM" bootloader mode   */
+#if defined(RAM)
+   BEGIN           : origin = 0x000000, length = 0x000002
+#elif defined(FLASH)
+   BEGIN           : origin = 0x080000, length = 0x000002
+#endif
+   RAMM0           : origin = 0x000122, length = 0x0002DE
+   RAMM1           : origin = 0x000400, length = 0x000400
 
-   BEGIN           	: origin = 0x000000, length = 0x000002
-   RAMM0           	: origin = 0x000122, length = 0x0002DE
-   RAMD0           	: origin = 0x00B000, length = 0x000800
-   RAMLS0          	: origin = 0x008000, length = 0x000800
-   RAMLS1          	: origin = 0x008800, length = 0x000800
-   RAMLS2      		: origin = 0x009000, length = 0x000800
-   RAMLS3      		: origin = 0x009800, length = 0x000800
-   RAMLS4      		: origin = 0x00A000, length = 0x000800
-   RESET           	: origin = 0x3FFFC0, length = 0x000002
+   RAMD0		   : origin = 0x00B000, length = 0x000800
+   RAMD1		   : origin = 0x00B800, length = 0x000800
+
+   RAMLS0          : origin = 0x008000, length = 0x001000
+   //RAMLS1          : origin = 0x008800, length = 0x000800
+   RAMLS1          : origin = 0x009000, length = 0x000800
+
+   RAMGS0		   : origin = 0x00C000, length = 0x001000
+   RAMGS1		   : origin = 0x00D000, length = 0x001000
+   RAMGS2		   : origin = 0x00E000, length = 0x001000
+   RAMGS3		   : origin = 0x00F000, length = 0x001000
+
+   RESET           : origin = 0x3FFFC0, length = 0x000002
+
+   FLASHA           : origin = 0x080002, length = 0x001FFE	/* on-chip Flash */
+   FLASHC           : origin = 0x084000, length = 0x002000	/* on-chip Flash */
+   FLASHD           : origin = 0x086000, length = 0x002000	/* on-chip Flash */
+   FLASHE           : origin = 0x088000, length = 0x008000	/* on-chip Flash */
+   FLASHF           : origin = 0x090000, length = 0x008000	/* on-chip Flash */
+   FLASHG           : origin = 0x098000, length = 0x008000	/* on-chip Flash */
+   FLASHH           : origin = 0x0A0000, length = 0x008000	/* on-chip Flash */
+   FLASHI           : origin = 0x0A8000, length = 0x008000	/* on-chip Flash */
+   FLASHJ           : origin = 0x0B0000, length = 0x008000	/* on-chip Flash */
+   FLASHK           : origin = 0x0B8000, length = 0x002000	/* on-chip Flash */
+   FLASHL           : origin = 0x0BA000, length = 0x002000	/* on-chip Flash */
+   FLASHM           : origin = 0x0BC000, length = 0x002000	/* on-chip Flash */
+   FLASHN           : origin = 0x0BE000, length = 0x002000	/* on-chip Flash */
+
 
 PAGE 1 :
-
    BOOT_RSVD       : origin = 0x000002, length = 0x000120     /* Part of M0, BOOT rom will use this for stack */
-   RAMM1           : origin = 0x000400, length = 0x000400     /* on-chip RAM block M1 */
-   RAMD1           : origin = 0x00B800, length = 0x000800
 
-   RAMLS5      : origin = 0x00A800, length = 0x000800
+   RAMLS3          : origin = 0x009800, length = 0x000800
+   RAMLS4          : origin = 0x00A000, length = 0x000800
+   RAMLS5          : origin = 0x00A800, length = 0x000800
 
-   RAMGS0      : origin = 0x00C000, length = 0x003000
-   // RAMGS1      : origin = 0x00D000, length = 0x001000
-   // RAMGS2      : origin = 0x00E000, length = 0x001000
-   RAMGS3      : origin = 0x00F000, length = 0x001000
-   RAMGS4      : origin = 0x010000, length = 0x002000
-   // RAMGS5      : origin = 0x011000, length = 0x001000
-   RAMGS6      : origin = 0x012000, length = 0x001000
-   RAMGS7      : origin = 0x013000, length = 0x001000
-   RAMGS8      : origin = 0x014000, length = 0x001000
-   RAMGS9      : origin = 0x015000, length = 0x001000
-   RAMGS10     : origin = 0x016000, length = 0x002000
-   // RAMGS11     : origin = 0x017000, length = 0x001000
-   RAMGS12     : origin = 0x018000, length = 0x002000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
-   // RAMGS13     : origin = 0x019000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
-   RAMGS14     : origin = 0x01A000, length = 0x002000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
-   // RAMGS15     : origin = 0x01B000, length = 0x001000     /* Only Available on F28379D, F28377D, F28375D devices. Remove line on other devices. */
+   RAMGS4		   : origin = 0x010000, length = 0x001000
+   RAMGS5		   : origin = 0x011000, length = 0x001000
+   RAMGS6		   : origin = 0x012000, length = 0x001000
+   RAMGS7		   : origin = 0x013000, length = 0x001000
+   RAMGS8		   : origin = 0x014000, length = 0x001000
+   RAMGS9		   : origin = 0x015000, length = 0x003000
+   //RAMGS10		   : origin = 0x016000, length = 0x001000
+   //RAMGS11		   : origin = 0x017000, length = 0x001000
+   RAMGS12         : origin = 0x018000, length = 0x001000
+   RAMGS1315       : origin = 0x019000, length = 0x003000
+//   RAMGS14           : origin = 0x01A000, length = 0x001000
+//   RAMGS15           : origin = 0x01B000, length = 0x001000
 
-   CPU2TOCPU1RAM   : origin = 0x03F800, length = 0x000400
-   CPU1TOCPU2RAM   : origin = 0x03FC00, length = 0x000400
-
-   CANA_MSG_RAM     : origin = 0x049000, length = 0x000800
-   CANB_MSG_RAM     : origin = 0x04B000, length = 0x000800
+   FLASHB          : origin = 0x082000, length = 0x002000	/* on-chip Flash */
 }
-
 
 SECTIONS
 {
    codestart        : > BEGIN,     PAGE = 0
-   .text            : >> RAMD0 | RAMLS0 | RAMLS1 | RAMLS2 | RAMLS3 | RAMLS4,   PAGE = 0
-   .cinit           : > RAMM0,     PAGE = 0 // RAMD0 moved from .text to .cinit for FFT input test table
-   //.cinit           : > RAMGS14 | RAMGS15,     PAGE = 1
-   .switch          : > RAMM0,     PAGE = 0
-   .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
-   .stack           : > RAMM1,     PAGE = 1
+#if defined(RAM)
+   .TI.ramfunc      : > RAMM0,     PAGE = 0
+   //.text            :>> RAMM1 | RAMD0 | RAMD1 | RAMLS0,  PAGE = 0
+   .text            :>> RAMM1 | RAMD0 | RAMD1 | RAMLS0 | RAMGS0 | RAMGS1,  PAGE = 0
+   .cinit           : > RAMLS1,    PAGE = 0
 
-#if defined(__TI_EABI__)
-   .bss             : > RAMLS5,    PAGE = 1
-   .bss:output      : > RAMLS3,    PAGE = 0
-   .init_array      : > RAMM0,     PAGE = 0
-   .const           : > RAMLS5,    PAGE = 1
-   .data            : > RAMLS5,    PAGE = 1
-   .sysmem          : > RAMLS5,    PAGE = 1
+   .pinit           : > RAMLS1,    PAGE = 0
+   .switch          : > RAMLS1,    PAGE = 0
+   .econst          : > RAMLS4,    PAGE = 1
+#elif defined(FLASH)
+   .TI.ramfunc      :  LOAD = FLASHC,
+                       RUN = RAMLS1,
+                       RUN_START(_RamfuncsRunStart),
+                       LOAD_START(_RamfuncsLoadStart),
+                       LOAD_SIZE(_RamfuncsLoadSize),
+                       PAGE = 0
+
+   .text            : > FLASHN,    PAGE = 0
+   .cinit           : > FLASHM,    PAGE = 0
+
+   .pinit           : > FLASHM,    PAGE = 0
+   .switch          : > FLASHM,    PAGE = 0
+   .econst          : > FLASHB,    PAGE = 1
+#if defined(USE_TABLES)
+   FFT_Twiddles     : LOAD = FLASHB,
+                      RUN  = RAMGS12
+                      RUN_START(_FFTTwiddlesRunStart),
+                      LOAD_START(_FFTTwiddlesLoadStart),
+                      LOAD_SIZE(_FFTTwiddlesLoadSize),
+                      PAGE = 1,
+  {
+     --library=c28x_fpu_dsp_library.lib<CFFT_f32_twiddleFactors.obj> (.econst)
+  }
+
+#endif
 #else
-   .pinit           : > RAMM0,     PAGE = 0
-   .ebss            : > RAMLS5 | RAMGS6 | RAMGS7 | RAMGS8 | RAMGS9,    PAGE = 1
-   .econst          : > RAMLS5,    PAGE = 1
-   .esysmem         : > RAMLS5,    PAGE = 1
-#endif
+#error Add either "RAM" or "FLASH" to C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
+#endif //RAM
 
-   	// Filter_RegsFile  : > RAMGS0,	   PAGE = 1
+    /* Test specific sections */
+   DMAACCESSABLE 	: > RAMGS9,    PAGE = 1
+   CFFTdata1        : > RAMGS4,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
+   CFFTdata2        : > RAMGS5,    PAGE = 1
+   CFFTdata3        : > RAMGS6,    PAGE = 1
+   CFFTdata4        : > RAMGS7,    PAGE = 1
 
-	// this is used to store the ping-pong buffers for DMA access
-   DMAACCESSABLE	: > RAMGS0, PAGE = 1 // | RAMGS1 | RAMGS2, PAGE = 1 // 12k bytes
+   FPUmathTables    : > RAMGS8,    PAGE = 1
 
-   	// MONOSAMPLES 		: > RAMGS0 | RAMGS1 | RAMGS14 |  RAMGS15, 	PAGE = 1 //, ALIGN(1024) // align 4*sizeOfFft
+   .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
 
-	// alignment must be 4*fftSize (ex. 4*256 point FFT = 1024 alignment)
-   CFFTdata1		: > RAMGS4 , PAGE = 1 // | RAMGS5, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
-   CFFTdata2		: > RAMGS14, PAGE = 1 // | RAMGS15, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
-   CFFTdata3		: > RAMGS10, PAGE = 1 // | RAMGS11, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
-   CFFTdata4		: > RAMGS12, PAGE = 1 // | RAMGS13, 	PAGE = 1 // , ALIGN(2048) // 8k bytes
+   .cio             : > RAMLS3,    PAGE = 1
+   .sysmem          : > RAMLS3,    PAGE = 1
 
-#ifdef __TI_COMPILER_VERSION__
-   #if __TI_COMPILER_VERSION__ >= 15009000
-    .TI.ramfunc : {} > RAMM0,      PAGE = 0
-   #else
-    ramfuncs    : > RAMM0      PAGE = 0   
-   #endif
-#endif
+   .stack           : > RAMLS4,    PAGE = 1
+   .ebss            : > RAMGS1315, PAGE = 1
+   .esysmem         : > RAMLS4,    PAGE = 1
 
-   // /* The following section definitions are required when using the IPC API Drivers */
-   //  GROUP : > CPU1TOCPU2RAM, PAGE = 1
-   //  {
-   //      PUTBUFFER
-   //      PUTWRITEIDX
-   //      GETREADIDX
-   //  }
-   //
-   //  GROUP : > CPU2TOCPU1RAM, PAGE = 1
-   //  {
-   //      GETBUFFER :    TYPE = DSECT
-   //      GETWRITEIDX :  TYPE = DSECT
-   //      PUTREADIDX :   TYPE = DSECT
-   //  }
-
-   //  /* The following section definition are for SDFM examples */
-   // Filter1_RegsFile : > RAMGS1,	PAGE = 1, fill=0x1111
-   // Filter2_RegsFile : > RAMGS2,	PAGE = 1, fill=0x2222
-   // Filter3_RegsFile : > RAMGS3,	PAGE = 1, fill=0x3333
-   // Filter4_RegsFile : > RAMGS4,	PAGE = 1, fill=0x4444
-   // Difference_RegsFile : >RAMGS5, 	PAGE = 1, fill=0x3333
 }
-
 /*
 //===========================================================================
 // End of file.
