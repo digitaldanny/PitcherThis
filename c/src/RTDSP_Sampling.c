@@ -244,3 +244,32 @@ void pingPongPang(int16 * in, int16 * out)
 
     EDIS;
 }
+
+/*
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ * SUMMARY: This function is used to initialize a gpio
+ * to be an output. This is used to probe the board and
+ * check that the interrupt is triggering at the time
+ * expected.
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ */
+void gpioTimerCheckInit()
+{
+    EALLOW;
+
+    // timer probe
+    GpioDataRegs.GPDDAT.bit.GPIO122 = 1;
+    GpioDataRegs.GPDDAT.bit.GPIO122 = 1;
+    GpioCtrlRegs.GPDDIR.bit.GPIO122 = GPIO_DIR_MODE_OUT;
+    GpioCtrlRegs.GPDGMUX2.bit.GPIO122 = 0x0000;
+    GpioCtrlRegs.GPDMUX2.bit.GPIO122 = 0x0000;
+    GpioCtrlRegs.GPDPUD.bit.GPIO122 = 0x0000;
+
+    // mcbsp probe
+    GpioDataRegs.GPDDAT.bit.GPIO123 = 1;
+    GpioDataRegs.GPDDAT.bit.GPIO123 = 1;
+    GpioCtrlRegs.GPDDIR.bit.GPIO123 = GPIO_DIR_MODE_OUT;
+    GpioCtrlRegs.GPDGMUX2.bit.GPIO123 = 0x0000;
+    GpioCtrlRegs.GPDMUX2.bit.GPIO123 = 0x0000;
+    GpioCtrlRegs.GPDPUD.bit.GPIO123 = 0x0000;
+}

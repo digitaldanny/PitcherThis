@@ -37,6 +37,14 @@ typedef enum i2sSide
                         DmaRegs.CH2.CONTROL.bit.RUN = 1; \
                         EDIS \
 
+#define timerOn()       EALLOW; \
+                        GpioDataRegs.GPDDAT.bit.GPIO122 = 1; \
+                        EDIS \
+
+#define timerOff()      EALLOW; \
+                        GpioDataRegs.GPDDAT.bit.GPIO122 = 0; \
+                        EDIS \
+
 #define CODEC_MCBSPB_INT_DIS    0
 #define CODEC_MCBSPB_INT_EN     1
 
@@ -120,5 +128,23 @@ void startDmaChannels(void);
  * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
  */
 void pingPong(void);
+
+/*
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ * SUMMARY: pingPongPang
+ * Change the DMA source and destination addresses.
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ */
+void pingPongPang(int16 * in, int16 * out);
+
+/*
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ * SUMMARY: This function is used to initialize a gpio
+ * to be an output. This is used to probe the board and
+ * check that the interrupt is triggering at the time
+ * expected.
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ */
+void gpioTimerCheckInit();
 
 #endif // SRC_RTDSP_SAMPLING_H_ //

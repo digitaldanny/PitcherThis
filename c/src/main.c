@@ -37,6 +37,7 @@
 #define CFFT_STAGES         9
 #define CFFT_SIZE           (1 << CFFT_STAGES)
 #define CFFT_FREQ_PER_BIN   (48000.0f / (float)CFFT_SIZE)
+#define CFFT_SIZE_MIN_1     (CFFT_SIZE - 1)
 
 /*
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
@@ -75,6 +76,7 @@ __interrupt void DMA_FRAME_COMPLETE_ISR(void);
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
  */
 
+volatile i2sSide_t ch_sel;   // unused in this project but required to compile RTDSP_Sampling
 volatile Uint16 boolTimer1;  // allows main to determine if the timer has run or not
 
 // RTDSP_Sampling Requirements
@@ -83,6 +85,42 @@ volatile float DataInLeft;
 volatile float DataInRight;
 volatile int16 DataInMono;
 volatile Uint16 LR_received;
+volatile float monof;
+
+const float hanningLUT[512] = {
+            0.000000f, 0.000038f, 0.000151f, 0.000340f, 0.000605f, 0.000945f, 0.001360f, 0.001851f, 0.002417f, 0.003058f, 0.003775f, 0.004566f, 0.005433f, 0.006374f, 0.007390f, 0.008480f,
+            0.009645f, 0.010884f, 0.012196f, 0.013583f, 0.015043f, 0.016576f, 0.018182f, 0.019862f, 0.021614f, 0.023438f, 0.025334f, 0.027302f, 0.029341f, 0.031452f, 0.033633f, 0.035885f,
+            0.038207f, 0.040599f, 0.043061f, 0.045591f, 0.048190f, 0.050858f, 0.053593f, 0.056396f, 0.059266f, 0.062203f, 0.065205f, 0.068274f, 0.071408f, 0.074606f, 0.077869f, 0.081196f,
+            0.084586f, 0.088038f, 0.091554f, 0.095130f, 0.098769f, 0.102467f, 0.106226f, 0.110044f, 0.113922f, 0.117857f, 0.121851f, 0.125901f, 0.130009f, 0.134172f, 0.138390f, 0.142663f,
+            0.146990f, 0.151371f, 0.155804f, 0.160289f, 0.164826f, 0.169413f, 0.174051f, 0.178737f, 0.183472f, 0.188255f, 0.193085f, 0.197962f, 0.202884f, 0.207851f, 0.212862f, 0.217917f,
+            0.223014f, 0.228153f, 0.233334f, 0.238554f, 0.243814f, 0.249113f, 0.254450f, 0.259824f, 0.265234f, 0.270680f, 0.276160f, 0.281674f, 0.287222f, 0.292801f, 0.298412f, 0.304053f,
+            0.309724f, 0.315423f, 0.321151f, 0.326905f, 0.332686f, 0.338492f, 0.344323f, 0.350177f, 0.356053f, 0.361952f, 0.367871f, 0.373810f, 0.379768f, 0.385745f, 0.391739f, 0.397749f,
+            0.403774f, 0.409814f, 0.415868f, 0.421935f, 0.428013f, 0.434102f, 0.440201f, 0.446309f, 0.452426f, 0.458549f, 0.464679f, 0.470814f, 0.476953f, 0.483096f, 0.489242f, 0.495389f,
+            0.501537f, 0.507685f, 0.513831f, 0.519975f, 0.526117f, 0.532254f, 0.538387f, 0.544513f, 0.550633f, 0.556746f, 0.562850f, 0.568944f, 0.575028f, 0.581100f, 0.587160f, 0.593207f,
+            0.599240f, 0.605258f, 0.611260f, 0.617246f, 0.623213f, 0.629162f, 0.635091f, 0.641000f, 0.646888f, 0.652753f, 0.658596f, 0.664414f, 0.670207f, 0.675975f, 0.681716f, 0.687430f,
+            0.693115f, 0.698771f, 0.704397f, 0.709993f, 0.715556f, 0.721087f, 0.726584f, 0.732047f, 0.737476f, 0.742868f, 0.748223f, 0.753541f, 0.758821f, 0.764061f, 0.769262f, 0.774421f,
+            0.779540f, 0.784616f, 0.789649f, 0.794638f, 0.799583f, 0.804482f, 0.809336f, 0.814142f, 0.818901f, 0.823612f, 0.828274f, 0.832887f, 0.837449f, 0.841960f, 0.846419f, 0.850826f,
+            0.855180f, 0.859480f, 0.863726f, 0.867917f, 0.872052f, 0.876131f, 0.880153f, 0.884118f, 0.888024f, 0.891872f, 0.895661f, 0.899390f, 0.903058f, 0.906666f, 0.910212f, 0.913696f,
+            0.917117f, 0.920476f, 0.923770f, 0.927001f, 0.930167f, 0.933269f, 0.936304f, 0.939274f, 0.942177f, 0.945014f, 0.947783f, 0.950484f, 0.953118f, 0.955683f, 0.958179f, 0.960605f,
+            0.962962f, 0.965249f, 0.967466f, 0.969612f, 0.971687f, 0.973691f, 0.975623f, 0.977483f, 0.979271f, 0.980987f, 0.982630f, 0.984200f, 0.985696f, 0.987120f, 0.988469f, 0.989745f,
+            0.990947f, 0.992074f, 0.993127f, 0.994106f, 0.995010f, 0.995839f, 0.996593f, 0.997272f, 0.997875f, 0.998404f, 0.998857f, 0.999235f, 0.999537f, 0.999764f, 0.999915f, 0.999991f,
+            0.999991f, 0.999915f, 0.999764f, 0.999537f, 0.999235f, 0.998857f, 0.998404f, 0.997875f, 0.997272f, 0.996593f, 0.995839f, 0.995010f, 0.994106f, 0.993127f, 0.992074f, 0.990947f,
+            0.989745f, 0.988469f, 0.987120f, 0.985696f, 0.984200f, 0.982630f, 0.980987f, 0.979271f, 0.977483f, 0.975623f, 0.973691f, 0.971687f, 0.969612f, 0.967466f, 0.965249f, 0.962962f,
+            0.960605f, 0.958179f, 0.955683f, 0.953118f, 0.950484f, 0.947783f, 0.945014f, 0.942177f, 0.939274f, 0.936304f, 0.933269f, 0.930167f, 0.927001f, 0.923770f, 0.920476f, 0.917117f,
+            0.913696f, 0.910212f, 0.906666f, 0.903058f, 0.899390f, 0.895661f, 0.891872f, 0.888024f, 0.884118f, 0.880153f, 0.876131f, 0.872052f, 0.867917f, 0.863726f, 0.859480f, 0.855180f,
+            0.850826f, 0.846419f, 0.841960f, 0.837449f, 0.832887f, 0.828274f, 0.823612f, 0.818901f, 0.814142f, 0.809336f, 0.804482f, 0.799583f, 0.794638f, 0.789649f, 0.784616f, 0.779540f,
+            0.774421f, 0.769262f, 0.764061f, 0.758821f, 0.753541f, 0.748223f, 0.742868f, 0.737476f, 0.732047f, 0.726584f, 0.721087f, 0.715556f, 0.709993f, 0.704397f, 0.698771f, 0.693115f,
+            0.687430f, 0.681716f, 0.675975f, 0.670207f, 0.664414f, 0.658596f, 0.652753f, 0.646888f, 0.641000f, 0.635091f, 0.629162f, 0.623213f, 0.617246f, 0.611260f, 0.605258f, 0.599240f,
+            0.593207f, 0.587160f, 0.581100f, 0.575028f, 0.568944f, 0.562850f, 0.556746f, 0.550633f, 0.544513f, 0.538387f, 0.532254f, 0.526117f, 0.519975f, 0.513831f, 0.507685f, 0.501537f,
+            0.495389f, 0.489242f, 0.483096f, 0.476953f, 0.470814f, 0.464679f, 0.458549f, 0.452426f, 0.446309f, 0.440201f, 0.434102f, 0.428013f, 0.421935f, 0.415868f, 0.409814f, 0.403774f,
+            0.397749f, 0.391739f, 0.385745f, 0.379768f, 0.373810f, 0.367871f, 0.361952f, 0.356053f, 0.350177f, 0.344323f, 0.338492f, 0.332686f, 0.326905f, 0.321151f, 0.315423f, 0.309724f,
+            0.304053f, 0.298412f, 0.292801f, 0.287222f, 0.281674f, 0.276160f, 0.270680f, 0.265234f, 0.259824f, 0.254450f, 0.249113f, 0.243814f, 0.238554f, 0.233334f, 0.228153f, 0.223014f,
+            0.217917f, 0.212862f, 0.207851f, 0.202884f, 0.197962f, 0.193085f, 0.188255f, 0.183472f, 0.178737f, 0.174051f, 0.169413f, 0.164826f, 0.160289f, 0.155804f, 0.151371f, 0.146990f,
+            0.142663f, 0.138390f, 0.134172f, 0.130009f, 0.125901f, 0.121851f, 0.117857f, 0.113922f, 0.110044f, 0.106226f, 0.102467f, 0.098769f, 0.095130f, 0.091554f, 0.088038f, 0.084586f,
+            0.081196f, 0.077869f, 0.074606f, 0.071408f, 0.068274f, 0.065205f, 0.062203f, 0.059266f, 0.056396f, 0.053593f, 0.050858f, 0.048190f, 0.045591f, 0.043061f, 0.040599f, 0.038207f,
+            0.035885f, 0.033633f, 0.031452f, 0.029341f, 0.027302f, 0.025334f, 0.023438f, 0.021614f, 0.019862f, 0.018182f, 0.016576f, 0.015043f, 0.013583f, 0.012196f, 0.010884f, 0.009645f,
+            0.008480f, 0.007390f, 0.006374f, 0.005433f, 0.004566f, 0.003775f, 0.003058f, 0.002417f, 0.001851f, 0.001360f, 0.000945f, 0.000605f, 0.000340f, 0.000151f, 0.000038f, 0.000000f
+     };
 
 // ping pong buffers
 #pragma DATA_SECTION(frames, "DMAACCESSABLE")    // DMA-accessible RAM
@@ -161,6 +199,7 @@ void main()
     // sets up codec and processor for sampling at 48 KHz
     initDmaPingPong(&inFrame->buffer[0], &outFrame->buffer[0], CFFT_SIZE, &DMA_FRAME_COMPLETE_ISR);
     initCodec(CODEC_MCBSPB_INT_DIS);
+    gpioTimerCheckInit();
 
     // Enable global Interrupts and higher priority real-time debug events:
     EINT;  // Enable Global interrupt INTM
@@ -178,43 +217,49 @@ void main()
     {
         if (dma_flag)
         {
+            timerOn();
 
             // *************************************************************************
-            // CFFT STRUCT SETUP
+            // CFFT STRUCT SETUP & HANNING WINDOW
             // ------------------------------------------------------------------------
-            cfft.InPtr = CFFTin1Buff;  //Input/output or middle stage of ping-pong buffer
-            cfft.OutPtr = CFFToutBuff; //Output or middle stage of ping-pong buffer
 
             // Store input samples into CFFTin1Buff:
             //     CFFTin1Buff[0] = real[0]
             //     CFFTin1Buff[1] = imag[0]
 
             // convert int16 LR samples to float mono samples
-            for (Uint16 i = 0; i < 2*CFFT_SIZE; i+=2)
+            for (Uint32 i = 0; i < 2*CFFT_SIZE_MIN_1; i+=2)
             {
-                CFFTin1Buff[i] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f; // real
+                monof = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
+                //CFFTin1Buff[i] = hanningLUT[i] * monof; // real (average of L and R channels)
+                CFFTin1Buff[i] = monof;
                 CFFTin1Buff[i+1] = 0.0f; // imaginary
             }
+
+            cfft.InPtr = &CFFTin1Buff[0];  //Input/output or middle stage of ping-pong buffer
+            cfft.OutPtr = &CFFToutBuff[0]; //Output or middle stage of ping-pong buffer
             // *************************************************************************
 
 
             // *************************************************************************
             // PROCESSING LAYER
             // ------------------------------------------------------------------------
-            CFFT_f32(&cfft);
-            // CFFT_f32s_mag(&cfft);
-            cfft.InPtr  = CFFToutBuff;        // ICFFT input pointer
-            cfft.OutPtr = CFFTin1Buff;        // ICFFT output pointer
-            ICFFT_f32(&cfft);                 // Calculate the ICFFT
+            CFFT_f32u(&cfft);
+            cfft.InPtr  = cfft.CurrentOutPtr;  // ICFFT input pointer
+            cfft.OutPtr = cfft.CurrentInPtr;   // ICFFT output pointer
+            ICFFT_f32(&cfft);                  // Calculate the ICFFT
 
-            // save the valid real parts of the icfft
-            for (int i = 0; i < (CFFT_SIZE>>2); i++)
+            // save the valid real parts of the icfft for left and right channels
+            for (Uint16 i = 0; i < 2*CFFT_SIZE_MIN_1; i+=2)
             {
-                fftFrame->buffer[i] = (int16)cfft.CurrentOutPtr[4*i + 1];
+                fftFrame->buffer[i] = (int16)cfft.CurrentOutPtr[2*i]; // Left
+                fftFrame->buffer[i+1] = fftFrame->buffer[i]; // Right
             }
             // *************************************************************************
 
             dma_flag = 0;
+
+            timerOff();
         }
     }
 }
@@ -246,6 +291,7 @@ polar_t searchMaxBin (float * bin, Uint16 len, float freqPerBin)
     {
         if (bin[k] > max)
         {
+            //bruh what even is this
             max = bin[k];
             maxK = k;
         }
@@ -279,7 +325,7 @@ polar_t searchMaxBin (float * bin, Uint16 len, float freqPerBin)
     tens                = (hundreds - (Uint16)hundreds) * 10;
     ones                = (tens - (Uint16)tens) * 10;
     tenths              = (ones - (Uint16)ones) * 10;
-
+    //hey hey hey
     // Convert voltage to characters and store to the LCD
     wr2[0] = INT_TO_ASCII((Uint16)tenThousands);
     wr2[1] = INT_TO_ASCII((Uint16)thousands);

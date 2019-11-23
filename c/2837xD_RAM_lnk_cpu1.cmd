@@ -49,8 +49,8 @@
 // the macro either in the linker command file, as shown here, or
 // through the project properties under,
 // C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
---define CFFT_ALIGNMENT=2048
---define RAM
+#define CFFT_ALIGNMENT 2048
+#define RAM
 #if !defined(CFFT_ALIGNMENT)
 #error define CFFT_ALIGNMENT under C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
 #endif
@@ -100,8 +100,8 @@ PAGE 1 :
    BOOT_RSVD       : origin = 0x000002, length = 0x000120     /* Part of M0, BOOT rom will use this for stack */
 
    RAMLS3          : origin = 0x009800, length = 0x000800
-   RAMLS4          : origin = 0x00A000, length = 0x000800
-   RAMLS5          : origin = 0x00A800, length = 0x000800
+   RAMLS4          : origin = 0x00A000, length = 0x001000
+   //RAMLS5          : origin = 0x00A800, length = 0x000800
 
    RAMGS4		   : origin = 0x010000, length = 0x001000
    RAMGS5		   : origin = 0x011000, length = 0x001000
