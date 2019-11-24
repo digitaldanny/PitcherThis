@@ -164,9 +164,9 @@ SECTIONS
     /* Test specific sections */
    DMAACCESSABLE 	: > RAMGS9,    PAGE = 1
    CFFTdata1        : > RAMGS4,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
-   CFFTdata2        : > RAMGS5,    PAGE = 1
-   CFFTdata3        : > RAMGS6,    PAGE = 1
-   CFFTdata4        : > RAMGS7,    PAGE = 1
+   CFFTdata2        : > RAMGS5,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
+   CFFTdata3        : > RAMGS6,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
+   CFFTdata4        : > RAMGS7,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
 
    FPUmathTables    : > RAMGS8,    PAGE = 1
 

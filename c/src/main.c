@@ -38,6 +38,7 @@
 #define CFFT_SIZE           (1 << CFFT_STAGES)
 #define CFFT_FREQ_PER_BIN   (48000.0f / (float)CFFT_SIZE)
 #define CFFT_SIZE_MIN_1     (CFFT_SIZE - 1)
+#define CFFT_SIZE_X2_MASK   ((2*CFFT_SIZE) - 1)
 
 /*
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
@@ -227,12 +228,11 @@ void main()
             //     CFFTin1Buff[0] = real[0]
             //     CFFTin1Buff[1] = imag[0]
 
-            // convert int16 LR samples to float mono samples
-            for (Uint32 i = 0; i < 2*CFFT_SIZE_MIN_1; i+=2)
+            // convert int16 LR samples to float mono samples with hanning window
+            for (Uint32 i = 0; i < CFFT_SIZE_X2_MASK; i+=2)
             {
                 monof = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
-                //CFFTin1Buff[i] = hanningLUT[i] * monof; // real (average of L and R channels)
-                CFFTin1Buff[i] = monof;
+                CFFTin1Buff[i] = hanningLUT[i>>1] * monof; // real (average of L and R channels)
                 CFFTin1Buff[i+1] = 0.0f; // imaginary
             }
 
@@ -250,10 +250,33 @@ void main()
             ICFFT_f32(&cfft);                  // Calculate the ICFFT
 
             // save the valid real parts of the icfft for left and right channels
-            for (Uint16 i = 0; i < 2*CFFT_SIZE_MIN_1; i+=2)
+            float currentSample = 0.0f;
+            float nextSample;
+            Uint16 indexSize = 4;
+            for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i+=indexSize)
             {
-                fftFrame->buffer[i] = (int16)cfft.CurrentOutPtr[2*i]; // Left
-                fftFrame->buffer[i+1] = fftFrame->buffer[i]; // Right
+                // get the current sample and next sample to be used in interpolation
+                nextSample = cfft.CurrentInPtr[(i+indexSize) & CFFT_SIZE_X2_MASK];
+
+                // // TESTING ON FLOATING POINT ARRAY BEFORE TYPECAST CONVERSION
+                // CFFTin2Buff[i] = currentSample;          // Left
+                // CFFTin2Buff[i+1] = CFFTin2Buff[i];       // Right
+                //
+                // // interpolate ICFFT results to recreate original frequency
+                // CFFTin2Buff[i+2] = (currentSample + nextSample)/2.0f; // Left interpolated
+                // CFFTin2Buff[i+3] = CFFTin2Buff[i+2];                  // Right interpolated
+
+
+                // typecast the real icfft samples to int16
+                fftFrame->buffer[i] = (int16)currentSample;   // Left
+                fftFrame->buffer[i+1] = fftFrame->buffer[i];  // Right
+
+                // interpolate ICFFT results to recreate original frequency
+                fftFrame->buffer[i+2] = (int16)((currentSample + nextSample)/2.0f); // Left interpolated
+                fftFrame->buffer[i+3] = fftFrame->buffer[i+2];                      // Right interpolated
+
+                // the next "current" sample is equal to this iteration's "next" sample
+                currentSample = nextSample;
             }
             // *************************************************************************
 
