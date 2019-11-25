@@ -108,9 +108,9 @@ PAGE 1 :
    RAMGS6		   : origin = 0x012000, length = 0x001000
    RAMGS7		   : origin = 0x013000, length = 0x001000
    RAMGS8		   : origin = 0x014000, length = 0x001000
-   RAMGS9		   : origin = 0x015000, length = 0x003000
+   RAMGS9		   : origin = 0x015000, length = 0x002000
    //RAMGS10		   : origin = 0x016000, length = 0x001000
-   //RAMGS11		   : origin = 0x017000, length = 0x001000
+   RAMGS11		   : origin = 0x017000, length = 0x001000
    RAMGS12         : origin = 0x018000, length = 0x001000
    RAMGS1315       : origin = 0x019000, length = 0x002000
 //   RAMGS14           : origin = 0x01A000, length = 0x001000
@@ -168,6 +168,7 @@ SECTIONS
    CFFTdata3        : > RAMGS6,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
    CFFTdata4        : > RAMGS7,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
    CFFTdata5        : > RAMGS16,   PAGE = 1, ALIGN = CFFT_ALIGNMENT
+   CFFTdata6        : > RAMGS11,   PAGE = 1, ALIGN = CFFT_ALIGNMENT
 
    FPUmathTables    : > RAMGS8,    PAGE = 1
 

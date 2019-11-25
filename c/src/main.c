@@ -67,8 +67,17 @@ typedef struct polar
  */
 
 void adcA0Init();
-polar_t searchMaxBin (float * bin, Uint16 len, float freqPerBin);
-void stft75 (CFFT_F32_STRUCT_Handle cfft, float * overlapBuff, float * inBuff, float * outBuff, float * binsBuff);
+
+polar_t searchMaxBin (float * bin,
+                      Uint16 len,
+                      float freqPerBin);
+
+void stft75 (CFFT_F32_STRUCT_Handle cfft,
+             float * overlapBuff,
+             float * inBuff,
+             float * prevInBuff,
+             float * outBuff,
+             float * binsBuff);
 
 __interrupt void Mcbsp_RxINTB_ISR(void);
 __interrupt void DMA_FRAME_COMPLETE_ISR(void);
@@ -140,19 +149,24 @@ float bin[NUM_DFT_BINS];    // stores result of dft256 function
 #pragma DATA_SECTION(CFFTin1Buff,"CFFTdata1");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
 float   CFFTin1Buff[CFFT_SIZE*2];
 
-#pragma DATA_SECTION(overlayBuff,"CFFTdata2");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
+#pragma DATA_SECTION(CFFTin2Buff,"CFFTdata2");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
+float   CFFTin2Buff[CFFT_SIZE*2];
+
+#pragma DATA_SECTION(overlayBuff,"CFFTdata3");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
 float   overlayBuff[CFFT_SIZE*2];
 
-#pragma DATA_SECTION(CFFToutBuff,"CFFTdata3");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
+#pragma DATA_SECTION(CFFToutBuff,"CFFTdata4");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
 float   CFFToutBuff[CFFT_SIZE*2];
 
-#pragma DATA_SECTION(fftBinsBuff,"CFFTdata4");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
+#pragma DATA_SECTION(fftBinsBuff,"CFFTdata5");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
 float   fftBinsBuff[CFFT_SIZE*2];
 
-#pragma DATA_SECTION(CFFTF32Coef,"CFFTdata5");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
+#pragma DATA_SECTION(CFFTF32Coef,"CFFTdata6");  //Buffer alignment,optional for CFFT_f32u - required by CFFT_f32
 float   CFFTF32Coef[CFFT_SIZE];                 // Twiddle buffer
 
 float * binFft;
+float * prevInPtr;
+float * currInPtr;
 
 CFFT_F32_STRUCT cfft;
 
@@ -180,17 +194,21 @@ void main()
     frames[1].prevFrame     = &frames[0];
     frames[2].prevFrame     = &frames[1];
 
-    inFrame                 = &frames[0];   // first buffer to be filled with samples
-    fftFrame                = &frames[1];   // first buffer to be processed
-    outFrame                = &frames[2];   // first buffer to output processed samples
+    inFrame                 = &frames[0];       // first buffer to be filled with samples
+    fftFrame                = &frames[1];       // first buffer to be processed
+    outFrame                = &frames[2];       // first buffer to output processed samples
 
-    cfft.CoefPtr            = CFFTF32Coef;   //Twiddle factor table
+    cfft.CoefPtr            = CFFTF32Coef;      // Twiddle factor table
     cfft.Stages             = CFFT_STAGES;
     cfft.FFTSize            = CFFT_SIZE;
 
     dma_flag                = 0;
+
+    currInPtr               = &CFFTin1Buff[0];
+    prevInPtr               = &CFFTin2Buff[0];     // prev buff must be initialized to 0 for stft
     // ------------------------------------------------------------------------
 
+    for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i++) prevInPtr[i] = 0.0f;
 
     // *************************************************************************
     // HARDWARE INITIALIZATIONS
@@ -217,10 +235,6 @@ void main()
     lcdString((Uint16 *)&s1);
 
     CFFT_f32_sincostable(&cfft); // Calculate twiddle factor
-
-    // initialize overlay buffer to 0 for the first iteration of the stft
-    for (Uint32 i = 0; i < CFFT_SIZE_X2_MASK; i++)
-        overlayBuff[i] = 0.0f;
     // ------------------------------------------------------------------------
 
     while(1)
@@ -241,10 +255,10 @@ void main()
             for (Uint32 i = 0; i < CFFT_SIZE_X2_MASK; i+=2)
             {
                 // real (average of L and R channels)
-                CFFTin1Buff[i] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
+                currInPtr[i] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
 
                 // imaginary
-                CFFTin1Buff[i+1] = 0.0f;
+                currInPtr[i+1] = 0.0f;
             }
             // *************************************************************************
 
@@ -253,7 +267,7 @@ void main()
             // PROCESSING LAYER
             // ------------------------------------------------------------------------
             // time domain -> frequency domain (with windowing applied)
-            stft75(&cfft, &overlayBuff[0], &CFFTin1Buff[0], &CFFToutBuff[0], &fftBinsBuff[0]);
+            stft75(&cfft, &overlayBuff[0], currInPtr, prevInPtr, &CFFToutBuff[0], &fftBinsBuff[0]);
 
             // user application goes here..
 
@@ -263,22 +277,22 @@ void main()
             ICFFT_f32(&cfft);                  // Calculate the ICFFT
 
             // save the valid real parts of the icfft for left and right channels
-            float currentSample = 0.0f;
+            float currentSample = cfft.CurrentOutPtr[0];
             float nextSample;
-            Uint16 indexSize = 4;
-            for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i+=indexSize)
+
+            /*
+            for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i+=4)
             {
                 // get the current sample and next sample to be used in interpolation
-                nextSample = cfft.CurrentInPtr[(i+indexSize) & CFFT_SIZE_X2_MASK];
+                nextSample = cfft.CurrentOutPtr[((i>>1)+2) & CFFT_SIZE_X2_MASK];
 
                 // // TESTING ON FLOATING POINT ARRAY BEFORE TYPECAST CONVERSION
-                // cfft.CurrentOutPtr[i] = currentSample;              // Left
-                // cfft.CurrentOutPtr[i+1] = cfft.CurrentOutPtr[i];    // Right
+                // cfft.CurrentInPtr[i] = currentSample;              // Left
+                // cfft.CurrentInPtr[i+1] = cfft.CurrentInPtr[i];    // Right
                 //
                 // // interpolate ICFFT results to recreate original frequency
-                // cfft.CurrentOutPtr[i+2] = (currentSample + nextSample)/2.0f; // Left interpolated
-                // cfft.CurrentOutPtr[i+3] = cfft.CurrentOutPtr[i+2];           // Right interpolated
-
+                // cfft.CurrentInPtr[i+2] = (currentSample + nextSample)/2.0f; // Left interpolated
+                // cfft.CurrentInPtr[i+3] = cfft.CurrentInPtr[i+2];           // Right interpolated
 
                 // typecast the real icfft samples to int16
                 fftFrame->buffer[i] = (int16)currentSample;   // Left
@@ -291,6 +305,27 @@ void main()
                 // the next "current" sample is equal to this iteration's "next" sample
                 currentSample = nextSample;
             }
+            */
+
+            for (Uint16 i = 0; i < CFFT_SIZE-1; i+=2)
+            {
+                // get the current sample and next sample to be used in interpolation
+                currentSample = cfft.CurrentOutPtr[i];
+
+                // typecast the real icfft samples to int16
+                fftFrame->buffer[i] = (int16)currentSample;   // Left
+                fftFrame->buffer[i+1] = fftFrame->buffer[i];  // Right
+            }
+
+            // copy the beginning of the array to the end of the array
+            Uint16 cfftSize = CFFT_SIZE; // halfway point index
+            for (Uint16 i = cfftSize; i < CFFT_SIZE_X2_MASK; i++)
+                fftFrame->buffer[i] = fftFrame->buffer[i-cfftSize];
+
+            // switch the inBuff pointers so the currentBuff becomes the previous input buffer
+            Uint32 tempSwitchingPtr = (Uint32)prevInPtr;
+            prevInPtr = currInPtr;
+            currInPtr = (float*)tempSwitchingPtr;
             // *************************************************************************
 
             dma_flag = 0;
@@ -338,45 +373,40 @@ void main()
 void stft75 (CFFT_F32_STRUCT_Handle cfft,
              float * overlapBuff,
              float * inBuff,
+             float * prevInBuff,
              float * outBuff,
              float * binsBuff)
 {
-    Uint16 hop = 2*STFT_HOP;       // multiplying by 2 handles skipping imaginary
-    Uint16 cfftSize = 2*CFFT_SIZE; // multiplying by 2 handles skipping imaginary
+
+    Uint16 hop = 2*STFT_HOP; // multiplying by 2 handles skipping imaginary
+
+    // break apart the two buffers of data
+    Uint16 idx;
+    float* framePtr;
+    float* frame[7];
+    frame[0] = prevInBuff   + 1*hop;
+    frame[1] = prevInBuff   + 2*hop;
+    frame[2] = prevInBuff   + 3*hop;
+    frame[3] = inBuff       + 0*hop;
+    frame[4] = inBuff       + 1*hop;
+    frame[5] = inBuff       + 2*hop;
+    frame[6] = inBuff       + 3*hop;
+
+    // initialize FFT bins buffer to all 0's
+    for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i++) binsBuff[i] = 0;
 
     // Outer loop = 4 for the 75% overlapping.
     for (Uint16 j = 0; j < 4; j++)
     {
-        // shift - when moving item from inBuff into overlayBuff
-        // size - number of samples to move from inBuff to overlayBuff
-        Uint16 shift = (3-j)*hop;
-        Uint16 size = hop*(j+1)-1;
 
-        /*
-         * add the next N/4 values to the end of the overlap array
-         * --
-         * The data can't be simply shifted left by the hop size because
-         * the CFFT function changes the overlay buffer values. This is why
-         * the algorithm to initialize 'i' is so awkward.
-         * --
-         * Skipping imaginary portion of the input is not important.
-         * --
-         * For the final iteration, the function reassigned the overlay buffer
-         * to equal the input buffer.
-         */
-        if (j == 3)
+        // create the overlap buffer by adding the next 25% of new samples
+        for (Uint16 i = j; i < j+4; i++)
         {
-            overlapBuff = inBuff;
-        }
-        else
-        {
-            // samples from the input buffer
-            for (Uint16 i = 0; i < size; i+=2)
-                overlapBuff[i+shift] = inBuff[i];
+            idx = i - j;            // index sections of the overlap buffer
+            framePtr = frame[i];    // point at the next section of samples
 
-            // set other values to 0
-            for (Uint16 i = 0; i < (cfftSize - size); i+=2)
-                overlapBuff[i] = 0.0f;
+            for (Uint16 k = 0; k < hop; k++)
+                overlapBuff[idx*hop + k] = framePtr[k];
         }
 
         // Apply a hamming window to the next frame
@@ -387,7 +417,7 @@ void stft75 (CFFT_F32_STRUCT_Handle cfft,
         // perform fft and add to the average fft bin values
         cfft->InPtr = overlapBuff;
         cfft->OutPtr = outBuff;
-        CFFT_f32u(cfft);
+        CFFT_f32(cfft);
 
         // add the new fft bin results to be averaged later
         // (cannot skip every other because imaginary portion of the bin is relevant)
