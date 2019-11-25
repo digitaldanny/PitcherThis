@@ -312,9 +312,10 @@ void main()
                 // get the current sample and next sample to be used in interpolation
                 currentSample = cfft.CurrentOutPtr[i];
 
-                // typecast the real icfft samples to int16
-                fftFrame->buffer[i] = (int16)currentSample;   // Left
-                fftFrame->buffer[i+1] = fftFrame->buffer[i];  // Right
+                // typecast the real icfft samples to int16 and reduce gain by a factor
+                // of 100 so the float value can fit into 16 bits.
+                fftFrame->buffer[i] = (int16)(currentSample/100);   // Left
+                fftFrame->buffer[i+1] = fftFrame->buffer[i];        // Right
             }
 
             // copy the beginning of the array to the end of the array
