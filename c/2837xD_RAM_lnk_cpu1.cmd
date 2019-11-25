@@ -112,9 +112,9 @@ PAGE 1 :
    //RAMGS10		   : origin = 0x016000, length = 0x001000
    //RAMGS11		   : origin = 0x017000, length = 0x001000
    RAMGS12         : origin = 0x018000, length = 0x001000
-   RAMGS1315       : origin = 0x019000, length = 0x003000
+   RAMGS1315       : origin = 0x019000, length = 0x002000
 //   RAMGS14           : origin = 0x01A000, length = 0x001000
-//   RAMGS15           : origin = 0x01B000, length = 0x001000
+   RAMGS16           : origin = 0x01B000, length = 0x001000
 
    FLASHB          : origin = 0x082000, length = 0x002000	/* on-chip Flash */
 }
@@ -167,6 +167,7 @@ SECTIONS
    CFFTdata2        : > RAMGS5,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
    CFFTdata3        : > RAMGS6,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
    CFFTdata4        : > RAMGS7,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
+   CFFTdata5        : > RAMGS16,   PAGE = 1, ALIGN = CFFT_ALIGNMENT
 
    FPUmathTables    : > RAMGS8,    PAGE = 1
 
