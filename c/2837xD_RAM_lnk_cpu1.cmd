@@ -49,7 +49,7 @@
 // the macro either in the linker command file, as shown here, or
 // through the project properties under,
 // C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
-#define CFFT_ALIGNMENT 2048
+--define CFFT_ALIGNMENT=2048
 #define RAM
 #if !defined(CFFT_ALIGNMENT)
 #error define CFFT_ALIGNMENT under C2000 Linker -> Advanced Options -> Command File Preprocessing -> --define
@@ -75,9 +75,9 @@ PAGE 0 :
    RAMLS1          : origin = 0x009000, length = 0x000800
 
    RAMGS0		   : origin = 0x00C000, length = 0x001000
-   RAMGS1		   : origin = 0x00D000, length = 0x001000
-   RAMGS2		   : origin = 0x00E000, length = 0x001000
-   RAMGS3		   : origin = 0x00F000, length = 0x001000
+   RAMGS1		   : origin = 0x00D000, length = 0x003000
+   // RAMGS2		   : origin = 0x00E000, length = 0x001000
+   // RAMGS3		   : origin = 0x00F000, length = 0x001000
 
    RESET           : origin = 0x3FFFC0, length = 0x000002
 
@@ -105,9 +105,9 @@ PAGE 1 :
 
    RAMGS4		   : origin = 0x010000, length = 0x001000
    RAMGS5		   : origin = 0x011000, length = 0x001000
-   RAMGS6		   : origin = 0x012000, length = 0x001000
-   RAMGS7		   : origin = 0x013000, length = 0x001000
-   RAMGS8		   : origin = 0x014000, length = 0x001000
+   RAMGS6		   : origin = 0x012000, length = 0x003000
+   //RAMGS7		   : origin = 0x013000, length = 0x001000
+   //RAMGS8		   : origin = 0x014000, length = 0x001000
    RAMGS9		   : origin = 0x015000, length = 0x002000
    //RAMGS10		   : origin = 0x016000, length = 0x001000
    RAMGS11		   : origin = 0x017000, length = 0x001000
@@ -131,6 +131,15 @@ SECTIONS
    .pinit           : > RAMLS1,    PAGE = 0
    .switch          : > RAMLS1,    PAGE = 0
    .econst          : > RAMLS4,    PAGE = 1
+
+   // ALL SECTIONS BELOW WERE PREVIOUSLY LOCATED IN THE TEST SPECIFIC SECTION
+   .cio             : > RAMLS3,    PAGE = 1
+
+   .sysmem          : > RAMGS6,    PAGE = 1  // dynamic memory allocation memory
+   .esysmem 		: > RAMGS6,    PAGE = 1  // dynamic memory allocation memory
+
+   .stack           : > RAMLS4,    PAGE = 1
+   .ebss            : > RAMGS1315, PAGE = 1
 #elif defined(FLASH)
    .TI.ramfunc      :  LOAD = FLASHC,
                        RUN = RAMLS1,
@@ -163,24 +172,11 @@ SECTIONS
 
     /* Test specific sections */
    DMAACCESSABLE 	: > RAMGS9,    PAGE = 1
-   CFFTdata1        : > RAMGS4,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
-   CFFTdata2        : > RAMGS5,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
-   CFFTdata3        : > RAMGS6,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
-   CFFTdata4        : > RAMGS7,    PAGE = 1, ALIGN = CFFT_ALIGNMENT
-   CFFTdata5        : > RAMGS16,   PAGE = 1, ALIGN = CFFT_ALIGNMENT
-   CFFTdata6        : > RAMGS11,   PAGE = 1, ALIGN = CFFT_ALIGNMENT
-
-   FPUmathTables    : > RAMGS8,    PAGE = 1
+   CFFTdata1        : > RAMGS4,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata2        : > RAMGS5,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata3        : > RAMGS16,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
 
    .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
-
-   .cio             : > RAMLS3,    PAGE = 1
-   .sysmem          : > RAMLS3,    PAGE = 1
-
-   .stack           : > RAMLS4,    PAGE = 1
-   .ebss            : > RAMGS1315, PAGE = 1
-   .esysmem         : > RAMLS4,    PAGE = 1
-
 }
 /*
 //===========================================================================
