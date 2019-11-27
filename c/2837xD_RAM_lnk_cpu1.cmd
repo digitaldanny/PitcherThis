@@ -99,22 +99,22 @@ PAGE 0 :
 PAGE 1 :
    BOOT_RSVD       : origin = 0x000002, length = 0x000120     /* Part of M0, BOOT rom will use this for stack */
 
-   RAMLS3          : origin = 0x009800, length = 0x000800
-   RAMLS4          : origin = 0x00A000, length = 0x001000
+   RAMLS3          : origin = 0x009800, length = 0x000800	// used
+   RAMLS4          : origin = 0x00A000, length = 0x001000 	// used
    //RAMLS5          : origin = 0x00A800, length = 0x000800
 
-   RAMGS4		   : origin = 0x010000, length = 0x001000
-   RAMGS5		   : origin = 0x011000, length = 0x001000
-   RAMGS6		   : origin = 0x012000, length = 0x003000
+   RAMGS4		   : origin = 0x010000, length = 0x001000	// used - CFFTdata1
+   RAMGS5		   : origin = 0x011000, length = 0x001000	// used - CFFTdata2
+   RAMGS6		   : origin = 0x012000, length = 0x004000	// used - esysmem (heap)
    //RAMGS7		   : origin = 0x013000, length = 0x001000
    //RAMGS8		   : origin = 0x014000, length = 0x001000
-   RAMGS9		   : origin = 0x015000, length = 0x002000
-   //RAMGS10		   : origin = 0x016000, length = 0x001000
-   RAMGS11		   : origin = 0x017000, length = 0x001000
-   RAMGS12         : origin = 0x018000, length = 0x001000
-   RAMGS1315       : origin = 0x019000, length = 0x002000
-//   RAMGS14           : origin = 0x01A000, length = 0x001000
-   RAMGS16           : origin = 0x01B000, length = 0x001000
+   //RAMGS9		   : origin = 0x015000, length = 0x002000
+   RAMGS10		   : origin = 0x016000, length = 0x002000 	// used - DMAACCESSABLE
+   //RAMGS11		   : origin = 0x017000, length = 0x001000
+   RAMGS12         : origin = 0x018000, length = 0x001000	// used - CFFTdata4
+   RAMGS13         : origin = 0x019000, length = 0x001000	// used - ebss
+   RAMGS14           : origin = 0x01A000, length = 0x001000	// used - CFFTdata5
+   RAMGS16           : origin = 0x01B000, length = 0x001000	// used - CFFTdata3
 
    FLASHB          : origin = 0x082000, length = 0x002000	/* on-chip Flash */
 }
@@ -139,7 +139,7 @@ SECTIONS
    .esysmem 		: > RAMGS6,    PAGE = 1  // dynamic memory allocation memory
 
    .stack           : > RAMLS4,    PAGE = 1
-   .ebss            : > RAMGS1315, PAGE = 1
+   .ebss            : > RAMGS13,   PAGE = 1
 #elif defined(FLASH)
    .TI.ramfunc      :  LOAD = FLASHC,
                        RUN = RAMLS1,
@@ -171,10 +171,12 @@ SECTIONS
 #endif //RAM
 
     /* Test specific sections */
-   DMAACCESSABLE 	: > RAMGS9,    PAGE = 1
+   DMAACCESSABLE 	: > RAMGS10,    PAGE = 1
    CFFTdata1        : > RAMGS4,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
    CFFTdata2        : > RAMGS5,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
    CFFTdata3        : > RAMGS16,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata4        : > RAMGS12,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata5        : > RAMGS14,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
 
    .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
 }
