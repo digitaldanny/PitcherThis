@@ -79,7 +79,7 @@ void initCodec(Uint16 mcbspIntEn)
 
     clearCodecLeds();
 
-    AIC23MaxIOGain(); // amplify the input lines to the max volume
+    //AIC23MaxIOGain(); // amplify the input lines to the max volume
 
     // Set codec interrupt to 48 KHz
     Uint16 command = CLKsampleratecontrol (SR48);

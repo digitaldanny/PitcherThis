@@ -326,8 +326,8 @@ void main(void)
              // output the fft results
              for (int i = 0; i < CFFT_SIZE_MIN_1; i++)
              {
-                 fftFrame->buffer[2*i]      = (int16)(currInPtr[i] * 0.02);    // left channel
-                 fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];           // right channel
+                 fftFrame->buffer[2*i]      = (int16)(currInPtr[i]*0.01f);  // left channel
+                 fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];        // right channel
              }
 
              // switch the inBuff pointers so the currentBuff becomes the previous input buffer
