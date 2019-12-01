@@ -29,7 +29,6 @@
 // PITCHSHIFTER - ADC controls pitch shifting between -24 to 24 steps.
 // AUTOTUNE - Automatically pitch shift to selected scale.
 #define PITCHSHIFTER
-#define V2
 
 /*
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
@@ -40,7 +39,7 @@
 // FFT related
 // 9 => 512 pt, 10 => 1024 pt FFT
 // (hamming LUT will have to be regenerated if this value changes)
-#define CFFT_STAGES         10
+#define CFFT_STAGES         9
 
 #define CFFT_SIZE           (1 << CFFT_STAGES)
 #define CFFT_FREQ_PER_BIN   (48000.0f / (float)CFFT_SIZE)
@@ -54,8 +53,8 @@
 #define FORCE_ADC_CONVERSION        AdcaRegs.ADCSOCFRC1.bit.SOC0 = 1
 #define WAIT_FOR_ADC_CONVERSION     while (AdcaRegs.ADCCTL1.bit.ADCBSY == 1)
 #define CLEAR_ADC_FLAG              AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 0x0001
-#define MAX_SHIFT                   40.0f
-#define MIN_SHIFT                   -40.0f
+#define MAX_SHIFT                   12.0f
+#define MIN_SHIFT                   -12.0f
 
 /*
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
@@ -84,22 +83,6 @@ typedef struct polar
 
 void adcA0Init();
 
-polar_t searchMaxBin (float * bin,
-                      Uint16 len,
-                      float freqPerBin);
-
-void stft75 (kiss_fftr_cfg kiss_fftr_state,
-             float * inBuff,
-             kiss_fft_cpx * outBuff,
-             float * prevInBuff,
-             float * overlapBuff,
-             kiss_fft_cpx * binsBuff,
-             const float * hanning);
-
-kiss_fft_cpx* pitchShift(kiss_fft_cpx * freq_bins,
-                         Uint16 cfft_size,
-                         float shift);
-
 __interrupt void Mcbsp_RxINTB_ISR(void);
 __interrupt void DMA_FRAME_COMPLETE_ISR(void);
 
@@ -120,6 +103,38 @@ volatile int16 DataInMono;
 volatile Uint16 LR_received;
 volatile float monof;
 
+#if CFFT_STAGES == 7
+const float hanningLUT[128] = {
+            0.000000f, 0.000612f, 0.002446f, 0.005497f, 0.009759f, 0.015220f, 0.021868f, 0.029685f, 0.038654f, 0.048752f, 0.059954f, 0.072232f, 0.085558f, 0.099898f, 0.115217f, 0.131477f,
+            0.148640f, 0.166662f, 0.185500f, 0.205108f, 0.225437f, 0.246438f, 0.268060f, 0.290249f, 0.312952f, 0.336112f, 0.359673f, 0.383578f, 0.407768f, 0.432183f, 0.456764f, 0.481452f,
+            0.506184f, 0.530901f, 0.555543f, 0.580049f, 0.604359f, 0.628414f, 0.652154f, 0.675522f, 0.698460f, 0.720913f, 0.742825f, 0.764143f, 0.784815f, 0.804789f, 0.824018f, 0.842454f,
+            0.860052f, 0.876768f, 0.892563f, 0.907397f, 0.921234f, 0.934040f, 0.945784f, 0.956437f, 0.965973f, 0.974369f, 0.981603f, 0.987660f, 0.992523f, 0.996180f, 0.998624f, 0.999847f,
+            0.999847f, 0.998624f, 0.996180f, 0.992523f, 0.987660f, 0.981603f, 0.974369f, 0.965973f, 0.956437f, 0.945784f, 0.934040f, 0.921234f, 0.907397f, 0.892563f, 0.876768f, 0.860052f,
+            0.842454f, 0.824018f, 0.804789f, 0.784815f, 0.764143f, 0.742825f, 0.720913f, 0.698460f, 0.675522f, 0.652154f, 0.628414f, 0.604359f, 0.580049f, 0.555543f, 0.530901f, 0.506184f,
+            0.481452f, 0.456764f, 0.432183f, 0.407768f, 0.383578f, 0.359673f, 0.336112f, 0.312952f, 0.290249f, 0.268060f, 0.246438f, 0.225437f, 0.205108f, 0.185500f, 0.166662f, 0.148640f,
+            0.131477f, 0.115217f, 0.099898f, 0.085558f, 0.072232f, 0.059954f, 0.048752f, 0.038654f, 0.029685f, 0.021868f, 0.015220f, 0.009759f, 0.005497f, 0.002446f, 0.000612f, 0.000000f
+     };
+#elif CFFT_STAGES == 8
+const float hanningLUT[256] = {
+            0.000000f, 0.000152f, 0.000607f, 0.001365f, 0.002427f, 0.003790f, 0.005454f, 0.007419f, 0.009683f, 0.012244f, 0.015102f, 0.018253f, 0.021698f, 0.025433f, 0.029455f, 0.033764f,
+            0.038355f, 0.043227f, 0.048376f, 0.053800f, 0.059494f, 0.065456f, 0.071681f, 0.078166f, 0.084908f, 0.091902f, 0.099143f, 0.106628f, 0.114351f, 0.122309f, 0.130496f, 0.138907f,
+            0.147537f, 0.156382f, 0.165435f, 0.174691f, 0.184144f, 0.193790f, 0.203621f, 0.213632f, 0.223818f, 0.234170f, 0.244684f, 0.255354f, 0.266171f, 0.277131f, 0.288226f, 0.299449f,
+            0.310794f, 0.322255f, 0.333823f, 0.345492f, 0.357254f, 0.369104f, 0.381032f, 0.393033f, 0.405099f, 0.417223f, 0.429397f, 0.441614f, 0.453866f, 0.466146f, 0.478447f, 0.490761f,
+            0.503080f, 0.515398f, 0.527706f, 0.539997f, 0.552264f, 0.564500f, 0.576696f, 0.588845f, 0.600941f, 0.612976f, 0.624941f, 0.636831f, 0.648638f, 0.660355f, 0.671974f, 0.683489f,
+            0.694893f, 0.706178f, 0.717338f, 0.728366f, 0.739256f, 0.750000f, 0.760592f, 0.771027f, 0.781296f, 0.791395f, 0.801317f, 0.811056f, 0.820607f, 0.829962f, 0.839118f, 0.848067f,
+            0.856805f, 0.865327f, 0.873626f, 0.881699f, 0.889540f, 0.897145f, 0.904508f, 0.911626f, 0.918495f, 0.925109f, 0.931464f, 0.937558f, 0.943387f, 0.948946f, 0.954233f, 0.959243f,
+            0.963976f, 0.968426f, 0.972592f, 0.976471f, 0.980061f, 0.983359f, 0.986364f, 0.989074f, 0.991487f, 0.993601f, 0.995416f, 0.996930f, 0.998142f, 0.999052f, 0.999659f, 0.999962f,
+            0.999962f, 0.999659f, 0.999052f, 0.998142f, 0.996930f, 0.995416f, 0.993601f, 0.991487f, 0.989074f, 0.986364f, 0.983359f, 0.980061f, 0.976471f, 0.972592f, 0.968426f, 0.963976f,
+            0.959243f, 0.954233f, 0.948946f, 0.943387f, 0.937558f, 0.931464f, 0.925109f, 0.918495f, 0.911626f, 0.904508f, 0.897145f, 0.889540f, 0.881699f, 0.873626f, 0.865327f, 0.856805f,
+            0.848067f, 0.839118f, 0.829962f, 0.820607f, 0.811056f, 0.801317f, 0.791395f, 0.781296f, 0.771027f, 0.760592f, 0.750000f, 0.739256f, 0.728366f, 0.717338f, 0.706178f, 0.694893f,
+            0.683489f, 0.671974f, 0.660355f, 0.648638f, 0.636831f, 0.624941f, 0.612976f, 0.600941f, 0.588845f, 0.576696f, 0.564500f, 0.552264f, 0.539997f, 0.527706f, 0.515398f, 0.503080f,
+            0.490761f, 0.478447f, 0.466146f, 0.453866f, 0.441614f, 0.429397f, 0.417223f, 0.405099f, 0.393033f, 0.381032f, 0.369104f, 0.357254f, 0.345492f, 0.333823f, 0.322255f, 0.310794f,
+            0.299449f, 0.288226f, 0.277131f, 0.266171f, 0.255354f, 0.244684f, 0.234170f, 0.223818f, 0.213632f, 0.203621f, 0.193790f, 0.184144f, 0.174691f, 0.165435f, 0.156382f, 0.147537f,
+            0.138907f, 0.130496f, 0.122309f, 0.114351f, 0.106628f, 0.099143f, 0.091902f, 0.084908f, 0.078166f, 0.071681f, 0.065456f, 0.059494f, 0.053800f, 0.048376f, 0.043227f, 0.038355f,
+            0.033764f, 0.029455f, 0.025433f, 0.021698f, 0.018253f, 0.015102f, 0.012244f, 0.009683f, 0.007419f, 0.005454f, 0.003790f, 0.002427f, 0.001365f, 0.000607f, 0.000152f, 0.000000f
+     };
+
+#elif CFFT_STAGES == 9
 const float hanningLUT[512] = {
             0.000000f, 0.000038f, 0.000151f, 0.000340f, 0.000605f, 0.000945f, 0.001360f, 0.001851f, 0.002417f, 0.003058f, 0.003775f, 0.004566f, 0.005433f, 0.006374f, 0.007390f, 0.008480f,
             0.009645f, 0.010884f, 0.012196f, 0.013583f, 0.015043f, 0.016576f, 0.018182f, 0.019862f, 0.021614f, 0.023438f, 0.025334f, 0.027302f, 0.029341f, 0.031452f, 0.033633f, 0.035885f,
@@ -154,6 +169,7 @@ const float hanningLUT[512] = {
             0.035885f, 0.033633f, 0.031452f, 0.029341f, 0.027302f, 0.025334f, 0.023438f, 0.021614f, 0.019862f, 0.018182f, 0.016576f, 0.015043f, 0.013583f, 0.012196f, 0.010884f, 0.009645f,
             0.008480f, 0.007390f, 0.006374f, 0.005433f, 0.004566f, 0.003775f, 0.003058f, 0.002417f, 0.001851f, 0.001360f, 0.000945f, 0.000605f, 0.000340f, 0.000151f, 0.000038f, 0.000000f
      };
+#endif
 
 // ping pong buffers
 #pragma DATA_SECTION(frames, "DMAACCESSABLE")    // DMA-accessible RAM
@@ -167,20 +183,31 @@ polar_t testPointMax;
 // +-----+-----+-----+-----+-----+-----+-----+
 // KISS FFT LIBRARY SETUP
 // +-----+-----+-----+-----+-----+-----+-----+
-#pragma DATA_SECTION(rin1,"CFFTdata1");
-kiss_fft_scalar rin1[CFFT_SIZE]; // real input
+#pragma DATA_SECTION(rin1,          "CFFTdata1_0x0800");
+kiss_fft_scalar rin1[CFFT_SIZE];    // real input
 
-#pragma DATA_SECTION(rin2,"CFFTdata2");
-kiss_fft_scalar rin2[CFFT_SIZE]; // real input
+#pragma DATA_SECTION(rin2,          "CFFTdata2_0x0800");
+kiss_fft_scalar rin2[CFFT_SIZE];    // real input
 
-#pragma DATA_SECTION(cout,"CFFTdata3");
-kiss_fft_cpx cout[CFFT_SIZE]; // complex output
+#pragma DATA_SECTION(cout,          "CFFTdata3_0x1000");
+kiss_fft_cpx cout[CFFT_SIZE];       // complex output
 
-#pragma DATA_SECTION(fftOutBuff,"CFFTdata4");
+#pragma DATA_SECTION(fftOutBuff,    "CFFTdata4_0x1000");
 kiss_fft_cpx fftOutBuff[CFFT_SIZE]; // complex output
 
-#pragma DATA_SECTION(overlayBuff,"CFFTdata5");
+#pragma DATA_SECTION(fftMagBuff,    "CFFTdata5_0x0400");
+float fftMagBuff[CFFT_SIZE/2];
+
+#pragma DATA_SECTION(fftPhaseArray,  "CFFTdata6_0x0C00");
+float fftPhaseArray[3][CFFT_SIZE/2];
+
+#pragma DATA_SECTION(overlayBuff,   "CFFTdata7_0x0800");
 float overlayBuff[CFFT_SIZE];
+
+#pragma DATA_SECTION(stretched,     "CFFTdata8_0x1400");
+float stretched[5*(CFFT_SIZE>>1)];  // used for overlap add
+                                    // pitch up 12 steps results in a buffer 2.5x larger
+                                    // than a single frame.
 
 kiss_fftr_cfg  kiss_fftr_state;
 kiss_fftr_cfg  kiss_fftri_state;
@@ -189,6 +216,11 @@ kiss_fftr_cfg  kiss_fftri_state;
 float * binFft;
 float * prevInPtr;
 float * currInPtr;
+
+float * prevPhasePtr;
+float * currPhasePtr;
+float * deltaPhasePtr;
+float * phaseCumulativePtr;
 
 // PITCH SHIFTING
 volatile Uint16 adcAResult;
@@ -229,8 +261,9 @@ void main(void)
     prevInPtr               = (float*)&rin2[0];     // prev buff must be initialized to 0 for stft
     // ------------------------------------------------------------------------
 
-    // prev buff must be initialized to 0 for stft
-    for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i++) prevInPtr[i] = 0.0f;
+    // prev buffs must be initialized to 0 for stft
+    for (Uint16 i = 0; i <= CFFT_SIZE_X2_MASK; i++)  prevInPtr[i] = 0.0f;
+    for (Uint16 i = 0; i < CFFT_SIZE/2; i++)         prevPhasePtr[i] = 0.0f;
 
     // *************************************************************************
     // HARDWARE INITIALIZATIONS
@@ -262,16 +295,17 @@ void main(void)
     lcdRow2();
     lcdString((Uint16 *)&s2);
 
-    /*
-     * fftptr - assigns where the fft malloc will start at
-     * lenmem - assign to max value so fftptr is used for malloc
-     */
-    kiss_fft_cpx * bins;
+    // KISS initializations
     int fftSize = CFFT_SIZE;
-    // size_t maxSize = -1; // max for an unsigned number
-    // kiss_fftr_state = kiss_fftr_alloc(fftSize, ifftSize, fftptr, &maxSize);
     kiss_fftr_state = kiss_fftr_alloc(fftSize, 0, NULL, NULL);
     kiss_fftri_state = kiss_fftr_alloc(fftSize, 1, NULL, NULL);
+
+    // Phase vocoder initializations
+    prevPhasePtr        = &fftPhaseArray[0][0];
+    currPhasePtr        = &fftPhaseArray[1][0];
+    phaseCumulativePtr  = &fftPhaseArray[2][0];
+    deltaPhasePtr       = prevPhasePtr;
+
     EALLOW;
 
     while(1)
@@ -297,43 +331,176 @@ void main(void)
 
         if (dma_flag)
         {
+            // DEBUGGING.......
+            shift = 12.0f;
+
             timerOn();
 
              // create mono samples by averaging left and right samples and store to the fft buffer
              for (int i = 0; i < CFFT_SIZE_X2_MASK; i+=2)
                  currInPtr[i>>1] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
 
-             // STFT
-             /*
-             stft75 (kiss_fftr_state,
-                          currInPtr,
-                          fftOutBuff,
-                          prevInPtr,
-                          overlayBuff,
-                          cout,
-                          hanningLUT);
-             */
+             // USER APP BEGIN ---------------------------------------------------------------
 
-             kiss_fftr(kiss_fftr_state, currInPtr, cout); // FFT
+             // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+             // INIT - creating constants to lighten DSP load during following loop
+             // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+             float      hop             = CFFT_SIZE>>2;             // 75% overlay = 1/4 sample size
+             float      alpha           = powf(2, shift/12.0f);     // pitch scaling factor
+             float      hopOut          = roundf(alpha*hop);        // intermediate constants
+             //float      normalizer      = M_SQRT1_2;                // 1/sqrt(winSize/(2*hop))
 
-             // USER APP START ---------------------------------------------------------------
-             bins = (kiss_fft_cpx*)&cout;
-             bins = pitchShift(bins, CFFT_SIZE, shift);
-             // USER APP END -----------------------------------------------------------------
+             float      C_1_DIV_CFFT_SIZE    = 1/(float)CFFT_SIZE;
+             float      C_2_MULT_PI          = 2*(float)M_PI;
+             float      C_1_DIV_HOP          = 1/hop;
 
-             kiss_fftri(kiss_fftri_state, bins, currInPtr); // IFFT
+             Uint16     ifusion         = 0;    // index for combining 4 frames back together
 
-             // output the fft results
-             for (int i = 0; i < CFFT_SIZE_MIN_1; i++)
+             for (int i = 0; i < 4; i++)
              {
-                 fftFrame->buffer[2*i]      = (int16)(currInPtr[i]*0.01f);  // left channel
-                 fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];        // right channel
+                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                 // ANALYSIS
+                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+                 // create 4 frames from the sample inputs and the previous inputs (or zeros)
+                 // with hanning window applied.
+                 Uint16 intermediate = (3-i)*CFFT_SIZE>>2;
+                 Uint16 complement = CFFT_SIZE - intermediate;
+                 for (Uint16 j = 0; j < CFFT_SIZE; j++)
+                 {
+                     overlayBuff[j] = (j < intermediate) ? prevInPtr[j+complement] : currInPtr[j-intermediate];
+                     overlayBuff[j] = overlayBuff[j] * hanningLUT[j]; // * normalizer; // *normalizer = 1/sqrt(2)
+                 }
+
+                 // get the FFT of the current buffer
+                 kiss_fftr(kiss_fftr_state, overlayBuff, cout); // FFT
+
+                 // find the magnitude and phase angle (in radians) of the FFT vectors
+                 // (only iterates N/2 because FFT is only valid up to fs/2)
+                 for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
+                 {
+                     // mag
+                     fftMagBuff[j] = sqrtf((cout[j].r * cout[j].r) + (cout[j].i * cout[j].i)); // Sqrt(Re^2 + Im^2)
+
+                     // phase
+                     currPhasePtr[j] = atanf(cout[j].i / cout[j].r); // atan(Im/Re) in radians
+                 }
+
+                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                 // PROCESSING
+                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+                 // The delta phase array takes the place of the previous phase buffer since the
+                 // previous values are not important after this iteration.
+                 deltaPhasePtr = prevPhasePtr;
+                 for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
+                     deltaPhasePtr[j] = currPhasePtr[j] - prevPhasePtr[j];
+
+                 // The previous phase array becomes equal to the current phase buffer which
+                 // will be the previous phase buffer in the next iteration.
+                 Uint32 tempAddressSwitcher = (Uint32)prevPhasePtr;
+                 prevPhasePtr = currPhasePtr;
+                 currPhasePtr = (float*)tempAddressSwitcher;
+
+                 for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
+                 {
+                     // (deltaPhiPrime) remove expected phase difference
+                     // deltaPhiPrime = deltaPhi - 2pi * hop  (0:CFFT_SIZE/2-1)/CFFT_SIZE
+                     deltaPhasePtr[j] = deltaPhasePtr[j] - (2*M_PI*hop)*((float)j*C_1_DIV_CFFT_SIZE);
+
+                     // (deltaPhiPrimeMod) map to -pi/pi range
+                     deltaPhasePtr[j] = fmodf(deltaPhasePtr[j]+M_PI, C_2_MULT_PI) - M_PI;
+
+                     // (trueFreq) find the true frequency
+                     deltaPhasePtr[j] = C_2_MULT_PI * ((float)j*C_1_DIV_CFFT_SIZE) + deltaPhasePtr[j] * C_1_DIV_HOP;
+
+                     // (finalPhase) find the final phase to be synthesized
+                     phaseCumulativePtr[j] += hopOut * deltaPhasePtr[j];
+                 }
+
+                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                 // SYNTHESIS - put time stretched data into buffer.
+                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+                 // convert from polar format to rectangular format for IFFT
+                 for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
+                 {
+                     cout[j].r = fftMagBuff[j] * cosf(phaseCumulativePtr[j]);
+                     cout[j].i = fftMagBuff[j] * sinf(phaseCumulativePtr[j]);
+                 }
+
+                 // convert from frequency domain to time domain
+                 kiss_fftri(kiss_fftri_state, cout, prevInPtr); // IFFT
+
+                 // 1.) apply the hanning window again..
+                 // 2.) add new signal to the time-stretched signal to be synthesized
+                 for (Uint16 j = 0; j < CFFT_SIZE; j++)
+                 {
+                     // 1.
+                     prevInPtr[j] = prevInPtr[j] * hanningLUT[j]; // * normalizer;
+
+                     // 2.
+                     stretched[j+ifusion] += prevInPtr[j];
+                 }
+
+                 // increment fusion index by step-size for next iteration
+                 ifusion += (Uint16)hopOut;
              }
+
+             // calculate the ratio between the stretched array and the expected array size
+             float interpCoef = (float)(ifusion - (Uint16)hopOut + CFFT_SIZE)*C_1_DIV_CFFT_SIZE;
+
+             // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+             // FINALIZE
+             // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+             // interpolate samples to output to the codec
+             float itarget;
+             float ifloor;
+             float iceil;
+             float sample;
+             for (int i = 0; i < CFFT_SIZE; i++)
+             {
+                 itarget                    = (float)i*interpCoef;
+
+                 // If the target index is not a real index, interpolate the sample.
+                 // Otherwise, return the value of the target index.
+                 if (itarget-(int)itarget > 0)
+                 {
+                     ifloor                     = floor(itarget);
+                     iceil                      = ceil(itarget);
+
+                     // weighted average of the two samples outside the target index
+                     // {(iceil - itarget)*lowerSample + (itarget - ifloor)*upperSample}/2.0f
+                     sample = (iceil-itarget)*stretched[(Uint16)ifloor & CFFT_SIZE_X2_MASK] +
+                             (itarget-ifloor)*stretched[(Uint16)iceil & CFFT_SIZE_X2_MASK];
+                     sample *= 0.5f;
+                 }
+                 else
+                 {
+                     sample = stretched[(Uint16)itarget & CFFT_SIZE_X2_MASK];
+                 }
+
+                 fftFrame->buffer[2*i]      = (int16)(sample * 0.025);  // left channel
+                 fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];    // right channel
+             }
+
+             // USER APP END -----------------------------------------------------------------
 
              // switch the inBuff pointers so the currentBuff becomes the previous input buffer
              Uint32 tempSwitchingPtr = (Uint32)prevInPtr;
              prevInPtr = currInPtr;
              currInPtr = (float*)tempSwitchingPtr;
+
+             // reset the phi buffers to 0
+             for (Uint16 i = 0; i < CFFT_SIZE/2; i++)
+             {
+                 prevPhasePtr[i]        = 0.0f;
+                 phaseCumulativePtr[i]  = 0.0f;
+             }
+
+             // reset the stretched buffer
+             for (Uint16 i = 0; i < 2*CFFT_SIZE; i++) stretched[i] = 0.0f;
 
              // Write to the LCD AFTER processing has completed
              // handle adc input to work with pitch function
@@ -362,247 +529,6 @@ void main(void)
  * FUNCTIONS
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
  */
-
-/*
- * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- * SUMMARY: pitchShift
- * V1 -> in version 1, this function can only pitch shift the bins by
- *       shifting bins to the left or right by the shift size.
- * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- */
-kiss_fft_cpx* pitchShift(kiss_fft_cpx * freq_bins, Uint16 cfft_size, float shift)
-{
-    /*
-     * V1: Bin shifting proof of concept
-     * ~ algorithm takes a long time to move all values to the left or right
-     * ~ reassigns values to new address
-     */
-#ifdef V1
-    // shift all bins either to the left or right
-    if (shift > 0.001)
-    {
-        int shiftSize = (int)shift;
-
-        // shift bins to the right (higher pitch)
-        for (int i = cfft_size-1; i >= 0; i--)
-        {
-            int ishift = i - shiftSize;
-            if (ishift < 0)
-            {
-                // pad with 0's if index is out of bounds
-                freq_bins[i].r = 0.0f;
-                freq_bins[i].i = 0.0f;
-            }
-            else
-            {
-                // shift bins over if within range
-                freq_bins[i].r = freq_bins[ishift].r;
-                freq_bins[i].i = freq_bins[ishift].i;
-            }
-        }
-    }
-    else if (shift < -0.001)
-    {
-        int shiftSize = (int)abs(shift);
-
-        // shift bins to the left (deeper pitch)
-        for (int i = 0; i < cfft_size; i++)
-        {
-            int ishift = i + shiftSize;
-            if (ishift > cfft_size-1)
-            {
-                // pad with 0's if out of bounds index
-                freq_bins[i].r = 0.0f;
-                freq_bins[i].i = 0.0f;
-            }
-            else
-            {
-                // shift bins over if within range
-                freq_bins[i].r = freq_bins[ishift].r;
-                freq_bins[i].i = freq_bins[ishift].i;
-            }
-        }
-    }
-#endif
-    /*
-     * V2: Bin array sliding
-     * ~ this algorithm should improve the time it takes to pitch shift by a full bin amount
-     * ~ instead of reassigning bin values, it simply slides the pointer up or down
-     */
-#ifdef V2
-    // shift all bins either to the left or right
-    int32 indexShift = (int32)-1*shift;
-    freq_bins = (kiss_fft_cpx*)((int32)freq_bins + (int32)sizeof(kiss_fft_cpx)*indexShift);
-#endif
-    return freq_bins;
-}
-
-/*
- * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- * SUMMARY: stft75
- * This function performs 4 FFT's on the input cfft object with 75%
- * overlay to get rid of the hanning window.
- *
- * EXPECTED USE:
- * ~ OverlapBuff, inBuff, and outBuff must be different array pointers.
- * ~ The input buffer should NOT have a hanning window applied yet.
- * ~ The results will be stored in the binsBuff
- * ~ global hanningLUT is defined equal to N in size.
- * ~ The input buffer values will be affected by this function.
- *
- * FUTURE IMPROVEMENT:
- * The 3/4 of the overlayBuff should remain after the function ends because
- * it will create a cleaner output than all 0's at the beginning.
- *
- * INPUTS:
- * overlapBuff -    pointer to the previous buffer used for overlapping
- *                  samples. At time=0, the overlapBuff's first N/4 samples
- *                  should be old samples (or 0 if this is the first
- *                  iteration of the stft).
- * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- */
-void stft75 (kiss_fftr_cfg kiss_fftr_state,
-             float * inBuff,
-             kiss_fft_cpx * outBuff,
-             float * prevInBuff,
-             float * overlapBuff,
-             kiss_fft_cpx * binsBuff,
-             const float * hanning)
-{
-
-    Uint16 hop = STFT_HOP; // multiplying by 2 handles skipping imaginary
-
-    // break apart the two buffers of data
-    Uint16 idx;
-    float* framePtr;
-    float* frame[7];
-    frame[0] = prevInBuff   + 1*hop;
-    frame[1] = prevInBuff   + 2*hop;
-    frame[2] = prevInBuff   + 3*hop;
-    frame[3] = inBuff       + 0*hop;
-    frame[4] = inBuff       + 1*hop;
-    frame[5] = inBuff       + 2*hop;
-    frame[6] = inBuff       + 3*hop;
-
-    // initialize FFT bins buffer to all 0's
-    for (Uint16 i = 0; i < CFFT_SIZE_MIN_1; i++)
-    {
-        binsBuff[i].r = 0.0f;
-        binsBuff[i].i = 0.0f;
-    }
-
-    // Outer loop = 4 for the 75% overlapping.
-    for (Uint16 j = 0; j < 4; j++)
-    {
-
-        // create the overlap buffer by adding the next 25% of new samples
-        for (Uint16 i = j; i < j+4; i++)
-        {
-            idx = i - j;            // index sections of the overlap buffer
-            framePtr = frame[i];    // point at the next section of samples
-
-            for (Uint16 k = 0; k < hop; k++)
-                overlapBuff[idx*hop + k] = framePtr[k];
-        }
-
-        // Apply a hamming window to the next frame
-        // (skipping imaginary portion of the input is not important)
-        for (Uint32 i = 0; i < CFFT_SIZE_MIN_1; i++)
-            overlapBuff[i] *= hanning[i]; // only on the real part of the array
-
-        // perform fft and add to the average fft bin values
-        kiss_fftr(kiss_fftr_state, overlapBuff, outBuff); // FFT
-
-        // add the new fft bin results to be averaged later
-        // (cannot skip every other because imaginary portion of the bin is relevant)
-        for (Uint16 i = 0; i < CFFT_SIZE_MIN_1; i++)
-        {
-            binsBuff[i].r += outBuff[i].r;
-            binsBuff[i].i += outBuff[i].i;
-        }
-    }
-
-    // average the fft bin results by dividing by 4
-    for (Uint16 i = 0; i < CFFT_SIZE_MIN_1; i++)
-    {
-        binsBuff[i].r *= 0.25f;
-        binsBuff[i].i *= 0.25f;
-    }
-}
-
-/*
- * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- * SUMMARY: searchMaxBin
- * This function searches a bin array for the max magnitude and outputs
- * the max magnitude and frequency to the LCD
- * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
- */
-polar_t searchMaxBin (float * bin, Uint16 len, float freqPerBin)
-{
-    char wr[5] = "X.XX"; // store ASCII versions of DFT magnitude in here..
-    char wr2[8] = "XXXXX.X"; // store ASCII versions of the max frequency here..
-    float max = 0.0f;
-    Uint16 maxK = 0;
-    polar_t conversion;
-
-    // 1.) search for the max bin value
-    for (Uint16 k = 0; k < len; k++)
-    {
-        if (bin[k] > max)
-        {
-            //bruh what even is this
-            max = bin[k];
-            maxK = k;
-        }
-
-        bin[k] = 0.0f; // reset to be used later
-    }
-
-    max = 10.0f*log10f(max);
-
-    // 2.) Output the max bin magnitude to the LCD
-    float tens         = max / 10.0f;
-    float ones         = (tens - (Uint16)tens) * 10;
-    float tenths       = (ones - (Uint16)ones) * 10;
-    float hundredths   = (tenths - (Uint16)tenths) * 10;
-
-    // Convert voltage to characters and store to the LCD
-    wr[0] = INT_TO_ASCII((Uint16)tens + 0.5f);
-    wr[1] = INT_TO_ASCII((Uint16)ones); // 1's place (Ex. [1].23)
-    wr[2] = '.';
-    wr[3] = INT_TO_ASCII((Uint16)tenths); // 10th's place (Ex. 1.[2]3)
-    wr[4] = '\0';
-
-    lcdCursorRow2(6); // offset t.o the X.XX decimal voltage value
-    lcdString((Uint16*)&wr);
-
-    // 3.) Output the max frequency to the LCD
-    float maxFreq       = (float)maxK * freqPerBin;
-    float tenThousands  = maxFreq / 10000.0f;
-    float thousands     = (tenThousands - (Uint16)tenThousands) * 10;
-    float hundreds      = (thousands - (Uint16)thousands) * 10;
-    tens                = (hundreds - (Uint16)hundreds) * 10;
-    ones                = (tens - (Uint16)tens) * 10;
-    tenths              = (ones - (Uint16)ones) * 10;
-    //hey hey hey
-    // Convert voltage to characters and store to the LCD
-    wr2[0] = INT_TO_ASCII((Uint16)tenThousands);
-    wr2[1] = INT_TO_ASCII((Uint16)thousands);
-    wr2[2] = INT_TO_ASCII((Uint16)hundreds);
-    wr2[3] = INT_TO_ASCII((Uint16)tens);
-    wr2[4] = INT_TO_ASCII((Uint16)ones);
-    wr2[5] = '.';
-    wr2[6] = INT_TO_ASCII((Uint16)tenths);
-    wr2[7] = '\0';
-
-    lcdCursorRow1(7);
-    lcdString((Uint16*)&wr2);
-
-    // create the return structure
-    conversion.magnitude = max;
-    conversion.freq = maxFreq;
-    return conversion;
-}
 
 /*
  * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
@@ -643,6 +569,8 @@ void adcA0Init()
 __interrupt void DMA_FRAME_COMPLETE_ISR(void)
 {
     EALLOW;
+    GpioDataRegs.GPDDAT.bit.GPIO123 = 1;
+
     PieCtrlRegs.PIEACK.all |= PIEACK_GROUP7; // ACK to receive more interrupts from this PIE groups
     EDIS;
 
@@ -658,6 +586,8 @@ __interrupt void DMA_FRAME_COMPLETE_ISR(void)
     dma_flag = 1;
 
     startDmaChannels();
+
+    GpioDataRegs.GPDDAT.bit.GPIO123 = 0;
 }
 
 /* Unused interrupt handles error thrown by RTDSP_Sampling.c */

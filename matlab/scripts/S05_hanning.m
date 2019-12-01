@@ -1,7 +1,7 @@
 % This script generates the coefficients for a C hanning window LUT to 
 % decrease the processing time spent on windowing.
 
-L = 256; 
+L = 128; 
 
 coef = hann(L);
 str1 = sprintf('const float hanningLUT[%s] = {\n', string(L));

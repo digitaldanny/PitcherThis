@@ -221,12 +221,12 @@ void lcdByteData(Uint16 byte)
 void lcdInit()
 {
     InitI2CGpio();
-    DELAY_US(10000);
+    DELAY_US(10000L);
 
     // local variable initializations
     Uint16 slaveAddress = 0x3F;
     float32 sysClkMhz = 200.0f;
-    float32 I2CClkKHz = 400.0f;  // increasing write frequency for final project
+    float32 I2CClkKHz = 25.0f;  // increasing write frequency for final project
     //float32 I2CClkKHz = 25.0f; // 25KHz handles LCD delay required to process commands
 
     // initialization functions
@@ -237,7 +237,7 @@ void lcdInit()
     lcdCommand(0x28); // 0x28 => CMD, 4 bit mode, 2 line mode
     lcdCommand(0x0F); // 0x0F => CMD, Display on, Cursor on, Position on
     lcdCommand(0x01); // 0x01 => CMD, Clear screen
-    DELAY_US(10000);
+    DELAY_US(10000L);
 }
 
 /*

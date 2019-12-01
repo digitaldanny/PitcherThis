@@ -34,6 +34,7 @@ MODE            = 'Manual';
 APPROX_METHOD   = 'None';
 MIN_STEP        = -12;
 MAX_STEP        = 12;
+FREQ            = 187.5;
 
 % +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 % BEGIN SCRIPT
@@ -43,6 +44,10 @@ MAX_STEP        = 12;
 [audio,fsOriginal] = audioread(FILE, [FS*START FS*END]);
 x = resample(audio,fsOriginal, FS);
 x = (x(:,1) + x(:,2))/2; % (L + R) / 2 = mono
+
+for n = 1:FS
+    x(n,1) = sin(2*pi*FREQ*n/FS);
+end
 
 fftResolution = FS/FFT_SIZE;
 f = fftResolution*(0:FFT_SIZE/2-1);
