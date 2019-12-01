@@ -101,22 +101,20 @@ PAGE 1 :
 
    RAMLS3          : origin = 0x009800, length = 0x000800	// used
    RAMLS4          : origin = 0x00A000, length = 0x001000 	// used
+   //RAMLS5          : origin = 0x00A800, length = 0x000800
 
-   RAMGS4TOP	   : origin = 0x010000, length = 0x000800	// used - CFFTdata1_0x0800
-   RAMGS4BOT	   : origin = 0x010800, length = 0x000800	// used - CFFTdata2_0x0800
-   RAMGS5	       : origin = 0x011000, length = 0x001000	// used - CFFTdata3_0x1000
-   RAMGS6		   : origin = 0x012000, length = 0x003000	// used - esysmem (heap)
+   RAMGS4		   : origin = 0x010000, length = 0x001000	// used - CFFTdata1
+   RAMGS5		   : origin = 0x011000, length = 0x001000	// used - CFFTdata2
+   RAMGS6		   : origin = 0x012000, length = 0x004000	// used - esysmem (heap)
    //RAMGS7		   : origin = 0x013000, length = 0x001000
    //RAMGS8		   : origin = 0x014000, length = 0x001000
-   RAMGS9		   : origin = 0x015000, length = 0x001000	// used - CFFTdata8_0x1000
+   //RAMGS9		   : origin = 0x015000, length = 0x002000
    RAMGS10		   : origin = 0x016000, length = 0x002000 	// used - DMAACCESSABLE
    //RAMGS11		   : origin = 0x017000, length = 0x001000
-   RAMGS12         : origin = 0x018000, length = 0x001000	// used - CFFTdata4_0x1000
+   RAMGS12         : origin = 0x018000, length = 0x001000	// used - CFFTdata4
    RAMGS13         : origin = 0x019000, length = 0x001000	// used - ebss
-   RAMGS14TOP      : origin = 0x01A000, length = 0x000400	// used - CFFTdata5_0x0400
-   RAMGS14BOT      : origin = 0x01A400, length = 0x000C00	// used - CFFTdata6_0x0C00
-   RAMGS16TOP      : origin = 0x01B000, length = 0x000800	// used - CFFTdata7_0x1000
-   RAMGS16BOT 	   : origin = 0x01B800, length = 0x000800	// used - .TI.ramfunc
+   RAMGS14           : origin = 0x01A000, length = 0x001000	// used - CFFTdata5
+   RAMGS16           : origin = 0x01B000, length = 0x001000	// used - CFFTdata3
 
    FLASHB          : origin = 0x082000, length = 0x002000	/* on-chip Flash */
 }
@@ -125,8 +123,7 @@ SECTIONS
 {
    codestart        : > BEGIN,     PAGE = 0
 #if defined(RAM)
-   //.TI.ramfunc      : > RAMM0,     PAGE = 0
-   .TI.ramfunc      : > RAMGS16BOT,     PAGE = 1
+   .TI.ramfunc      : > RAMM0,     PAGE = 0
    //.text            :>> RAMM1 | RAMD0 | RAMD1 | RAMLS0,  PAGE = 0
    .text            :>> RAMM1 | RAMD0 | RAMD1 | RAMLS0 | RAMGS0 | RAMGS1,  PAGE = 0
    .cinit           : > RAMLS1,    PAGE = 0
@@ -174,15 +171,12 @@ SECTIONS
 #endif //RAM
 
     /* Test specific sections */
-   DMAACCESSABLE 		: > RAMGS10,    PAGE = 1
-   CFFTdata1_0x0800		: > RAMGS4TOP, 	PAGE = 1
-   CFFTdata2_0x0800		: > RAMGS4BOT, 	PAGE = 1
-   CFFTdata3_0x1000		: > RAMGS5,		PAGE = 1
-   CFFTdata4_0x1000		: > RAMGS12, 	PAGE = 1
-   CFFTdata5_0x0400		: > RAMGS14TOP,	PAGE = 1
-   CFFTdata6_0x0C00		: > RAMGS14BOT, PAGE = 1
-   CFFTdata7_0x0800		: > RAMGS16TOP, PAGE = 1
-   CFFTdata8_0x1000		: > RAMGS9, 	PAGE = 1
+   DMAACCESSABLE 	: > RAMGS10,    PAGE = 1
+   CFFTdata1        : > RAMGS4,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata2        : > RAMGS5,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata3        : > RAMGS16,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata4        : > RAMGS12,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata5        : > RAMGS14,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
 
    .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
 }

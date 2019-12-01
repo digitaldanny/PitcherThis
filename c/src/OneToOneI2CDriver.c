@@ -226,7 +226,7 @@ void lcdInit()
     // local variable initializations
     Uint16 slaveAddress = 0x3F;
     float32 sysClkMhz = 200.0f;
-    float32 I2CClkKHz = 25.0f;  // increasing write frequency for final project
+    float32 I2CClkKHz = 400.0f;  // increasing write frequency for final project
     //float32 I2CClkKHz = 25.0f; // 25KHz handles LCD delay required to process commands
 
     // initialization functions
