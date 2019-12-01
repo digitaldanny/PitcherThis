@@ -39,7 +39,7 @@
 // FFT related
 // 9 => 512 pt, 10 => 1024 pt FFT
 // (hamming LUT will have to be regenerated if this value changes)
-#define CFFT_STAGES         9
+#define CFFT_STAGES
 
 #define CFFT_SIZE           (1 << CFFT_STAGES)
 #define CFFT_FREQ_PER_BIN   (48000.0f / (float)CFFT_SIZE)
@@ -375,6 +375,8 @@ void main(void)
                  // get the FFT of the current buffer
                  kiss_fftr(kiss_fftr_state, overlayBuff, cout); // FFT
 
+                 deltaPhasePtr = prevPhasePtr;
+
                  // find the magnitude and phase angle (in radians) of the FFT vectors
                  // (only iterates N/2 because FFT is only valid up to fs/2)
                  for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
@@ -384,17 +386,15 @@ void main(void)
 
                      // phase
                      currPhasePtr[j] = atanf(cout[j].i / cout[j].r); // atan(Im/Re) in radians
-                 }
 
-                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-                 // PROCESSING
-                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                     // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                     // PROCESSING
+                     // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 
-                 // The delta phase array takes the place of the previous phase buffer since the
-                 // previous values are not important after this iteration.
-                 deltaPhasePtr = prevPhasePtr;
-                 for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
+                     // The delta phase array takes the place of the previous phase buffer since the
+                     // previous values are not important after this iteration.
                      deltaPhasePtr[j] = currPhasePtr[j] - prevPhasePtr[j];
+                 }
 
                  // The previous phase array becomes equal to the current phase buffer which
                  // will be the previous phase buffer in the next iteration.
@@ -416,15 +416,12 @@ void main(void)
 
                      // (finalPhase) find the final phase to be synthesized
                      phaseCumulativePtr[j] += hopOut * deltaPhasePtr[j];
-                 }
 
-                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-                 // SYNTHESIS - put time stretched data into buffer.
-                 // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                     // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                     // SYNTHESIS - put time stretched data into buffer.
+                     // +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 
-                 // convert from polar format to rectangular format for IFFT
-                 for (Uint16 j = 0; j < CFFT_SIZE/2; j++)
-                 {
+                     // convert from polar format to rectangular format for IFFT
                      cout[j].r = fftMagBuff[j] * cosf(phaseCumulativePtr[j]);
                      cout[j].i = fftMagBuff[j] * sinf(phaseCumulativePtr[j]);
                  }
@@ -461,14 +458,14 @@ void main(void)
              float sample;
              for (int i = 0; i < CFFT_SIZE; i++)
              {
-                 itarget                    = (float)i*interpCoef;
+                 itarget = (float)i*interpCoef;
 
                  // If the target index is not a real index, interpolate the sample.
                  // Otherwise, return the value of the target index.
                  if (itarget-(int)itarget > 0)
                  {
-                     ifloor                     = floor(itarget);
-                     iceil                      = ceil(itarget);
+                     ifloor = floor(itarget);
+                     iceil  = ceil(itarget);
 
                      // weighted average of the two samples outside the target index
                      // {(iceil - itarget)*lowerSample + (itarget - ifloor)*upperSample}/2.0f
@@ -481,7 +478,7 @@ void main(void)
                      sample = stretched[(Uint16)itarget & CFFT_SIZE_X2_MASK];
                  }
 
-                 fftFrame->buffer[2*i]      = (int16)(sample * 0.025);  // left channel
+                 fftFrame->buffer[2*i]      = (int16)(sample);          // left channel
                  fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];    // right channel
              }
 
