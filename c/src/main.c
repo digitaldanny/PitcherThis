@@ -57,6 +57,10 @@
 #define MAX_SHIFT                   12.0f
 #define MIN_SHIFT                   -12.0f
 
+#define LEFT_BUTTON                 0x4
+#define MIDDLE_BUTTON               0x2
+#define RIGHT_BUTTON                0x1
+
 /*
  * +=====+=====+=====+=====+=====+=====+=====+=====+=====+
  *                       TYPEDEFS
@@ -240,16 +244,6 @@ void main(void)
     gpioTimerCheckInit();
     adcA0Init();
 
-    // MIC SETUP ------------------------------
-    Uint16 command = fullpowerup(); //(SR48);
-    BitBangedCodecSpiTransmit (command);
-    SmallDelay();
-
-    command = aaudpath(); //(SR48);
-    BitBangedCodecSpiTransmit (command);
-    SmallDelay();
-    // MIC SETUP COMPLETE ---------------------
-
     // Enable global Interrupts and higher priority real-time debug events:
     EINT;  // Enable Global interrupt INTM
     ERTM;  // Enable Global realtime interrupt DBGM
@@ -270,8 +264,6 @@ void main(void)
      */
     kiss_fft_cpx * bins;
     int fftSize = CFFT_SIZE;
-    // size_t maxSize = -1; // max for an unsigned number
-    // kiss_fftr_state = kiss_fftr_alloc(fftSize, ifftSize, fftptr, &maxSize);
     kiss_fftr_state = kiss_fftr_alloc(fftSize, 0, NULL, NULL);
     kiss_fftri_state = kiss_fftr_alloc(fftSize, 1, NULL, NULL);
     EALLOW;
@@ -281,6 +273,39 @@ void main(void)
         // +--------------------------------------------------------------------------------------+
         // CREATE ADC VALUES WHILE WAITING FOR NEW SAMPLES
         // +--------------------------------------------------------------------------------------+
+
+        // Select the audio source..
+        Uint16 buttons = getCodecButtons();
+        if (buttons == LEFT_BUTTON)
+        {
+            Uint16 command = fullpowerup();
+            BitBangedCodecSpiTransmit (command);
+            SmallDelay();
+
+            command = aaudpath();
+            BitBangedCodecSpiTransmit (command);
+            SmallDelay();
+
+            lcdClearTopRow();
+            lcdCursorRow1(0);
+            char str[] = "MIC ON";
+            lcdString((Uint16 *)&str);
+        }
+        else if (buttons == RIGHT_BUTTON)
+        {
+            Uint16 command = nomicpowerup();
+            BitBangedCodecSpiTransmit (command);
+            SmallDelay();
+
+            command = nomicaaudpath();
+            BitBangedCodecSpiTransmit (command);
+            SmallDelay();
+
+            lcdClearTopRow();
+            lcdCursorRow1(0);
+            char str[] = "MIC OFF";
+            lcdString((Uint16 *)&str);
+        }
 
         // find ADC value to pitch shift by
         FORCE_ADC_CONVERSION;     // force ADC to convert on A0
@@ -303,14 +328,22 @@ void main(void)
 
              // create mono samples by averaging left and right samples and store to the fft buffer
              for (int i = 0; i < CFFT_SIZE_X2_MASK; i+=2)
-             {
                  currInPtr[i>>1] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
-                 //currInPtr[i>>1] *= hanningLUT[i>>1];
-             }
 
              kiss_fftr(kiss_fftr_state, currInPtr, cout); // FFT
 
              // USER APP START ---------------------------------------------------------------
+
+             // get rid of the white noise in upper bins
+             // Uint16 k = (Uint16)((CFFT_SIZE/2-1)*(float)adcAResult/(float)4095); // used to tune filter
+             // Uint16 k = 442; // tested value to remove white noise (32KHz sampling) -> 13.8 KHz
+             Uint16 k = 295; // (48KHz sampling) -> 13.8 KHz
+             for (Uint16 i = k; i < CFFT_SIZE/2; i++)
+             {
+                 cout[i].r = 0.0f;
+                 cout[i].i = 0.0f;
+             }
+
              bins = (kiss_fft_cpx*)&cout;
              bins = pitchShift(bins, CFFT_SIZE, shift);
              // USER APP END -----------------------------------------------------------------
