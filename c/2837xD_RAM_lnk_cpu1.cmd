@@ -104,7 +104,8 @@ PAGE 1 :
    //RAMLS5          : origin = 0x00A800, length = 0x000800
 
    RAMGS4		   : origin = 0x010000, length = 0x001000	// used - CFFTdata1
-   RAMGS5		   : origin = 0x011000, length = 0x001000	// used - CFFTdata2
+   RAMGS5TOP	   : origin = 0x011000, length = 0x000800	// used - CFFTdata2_0x0800
+   RAMGS5BOT	   : origin = 0x011800, length = 0x000800 	// used - CFFTdata7_0x0800
    RAMGS6		   : origin = 0x012000, length = 0x004000	// used - esysmem (heap)
    //RAMGS7		   : origin = 0x013000, length = 0x001000
    //RAMGS8		   : origin = 0x014000, length = 0x001000
@@ -173,12 +174,13 @@ SECTIONS
 
     /* Test specific sections */
    DMAACCESSABLE 	: > RAMGS10,    PAGE = 1
-   CFFTdata1        : > RAMGS4,    PAGE = 1
-   CFFTdata2        : > RAMGS5,    PAGE = 1
+   CFFTdata1        : > RAMGS4,     PAGE = 1
+   CFFTdata2_0x0800 : > RAMGS5TOP,  PAGE = 1
    CFFTdata3        : > RAMGS16,    PAGE = 1
    CFFTdata4        : > RAMGS12,    PAGE = 1
    CFFTdata5_0x0800 : > RAMGS14TOP, PAGE = 1
    CFFTdata6_0x0800 : > RAMGS14BOT, PAGE = 1
+   CFFTdata7_0x0800 : > RAMGS5BOT,	PAGE = 1
 
    .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
 }

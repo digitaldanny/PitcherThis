@@ -79,6 +79,12 @@ typedef struct frame
     struct frame * nextFrame;       // points to the next frame
 } frame_t;
 
+typedef struct sampler
+{
+    float * samples;
+    struct sampler * next;
+} sampler_t;
+
 typedef struct polar
 {
     float magnitude;
@@ -168,8 +174,11 @@ polar_t testPointMax;
 #pragma DATA_SECTION(rin1,"CFFTdata1");
 kiss_fft_scalar rin1[CFFT_SIZE]; // real input
 
-#pragma DATA_SECTION(rin2,"CFFTdata2");
+#pragma DATA_SECTION(rin2,"CFFTdata2_0x0800");
 kiss_fft_scalar rin2[CFFT_SIZE]; // real input
+
+#pragma DATA_SECTION(rin3, "CFFTdata7_0x0800")
+kiss_fft_scalar rin3[CFFT_SIZE]; // real input
 
 #pragma DATA_SECTION(cout,"CFFTdata3");
 kiss_fft_cpx cout[CFFT_SIZE]; // complex output
@@ -188,8 +197,9 @@ kiss_fftr_cfg  kiss_fftri_state;
 // +-----+-----+-----+-----+-----+-----+-----+
 
 float * binFft;
-float * prevInPtr;
-float * currInPtr;
+sampler_t * prevIn;
+sampler_t * currIn;
+sampler_t * nextIn;
 float * samplesOutPtr;
 
 // PITCH SHIFTING
@@ -230,15 +240,26 @@ void main(void)
 
     dma_flag                = 0;
 
-    currInPtr               = (float*)&rin1[0];
-    prevInPtr               = (float*)&rin2[0];     // prev buff must be initialized to 0 for stft
+    prevIn->samples          = (float*)&rin1[0]; // prev buff must be initialized to 0
+    prevIn->next             = currIn;
+
+    currIn->samples          = (float*)&rin2[0];
+    currIn->next             = nextIn;
+
+    nextIn->samples          = (float*)&rin3[0]; // next buff must be initialized to 0
+    nextIn->next             = prevIn;
+
     samplesOutPtr           = (float*)&samplesOutBuff[0];
 
     robotEffectEn           = 0;
     // ------------------------------------------------------------------------
 
-    // prev buff must be initialized to 0 for stft
-    for (Uint16 i = 0; i < CFFT_SIZE_X2_MASK; i++) prevInPtr[i] = 0.0f;
+    // prev buff must be initialized to 0 for overlapping
+    for (Uint16 i = 0; i < CFFT_SIZE; i++)
+    {
+        prevIn->samples[i] = 0.0f;
+        nextIn->samples[i] = 0.0f;
+    }
 
     // *************************************************************************
     // HARDWARE INITIALIZATIONS
@@ -379,23 +400,23 @@ void main(void)
             timerOn();
 
              // create mono samples by averaging left and right samples and store to the fft buffer
+             // and apply the hanning window to the samples
              for (int i = 0; i < CFFT_SIZE_X2_MASK; i+=2)
              {
-                 currInPtr[i>>1] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
-                 currInPtr[i>>1] *= hanningLUT[i>>2];
+                 nextIn->samples[i>>1] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
+                 nextIn->samples[i>>1] *= hanningLUT[i>>2];
              }
 
-             // construct the overlap buffer using 50% overlap of previous data and new data
-             // and apply the hanning window.
+             // construct the overlap buffer using 50% overlap of previous, current, and next data
              for (int i = 0; i < CFFT_SIZE; i++)
              {
                  if (i < CFFT_SIZE>>1)
-                     overlayBuff[i] = prevInPtr[i+(CFFT_SIZE>>1)] + currInPtr[i];
+                     overlayBuff[i] = prevIn->samples[i+(CFFT_SIZE>>1)] + currIn->samples[i];
                  else
-                     overlayBuff[i] = currInPtr[i];
+                     overlayBuff[i] = currIn->samples[i] + nextIn->samples[i-(CFFT_SIZE>>1)];
              }
 
-             //kiss_fftr(kiss_fftr_state, currInPtr, cout); // FFT
+             //kiss_fftr(kiss_fftr_state, currIn, cout); // FFT
              kiss_fftr(kiss_fftr_state, &overlayBuff[0], cout); // FFT
 
              // +----------------------------------------------------------------------------+
@@ -441,10 +462,10 @@ void main(void)
                  fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];           // right channel
              }
 
-             // switch the inBuff pointers so the currentBuff becomes the previous input buffer
-             Uint32 tempSwitchingPtr = (Uint32)prevInPtr;
-             prevInPtr = currInPtr;
-             currInPtr = (float*)tempSwitchingPtr;
+             // rotate input buffers so more samples can be recorded and processed
+             prevIn = prevIn->next;
+             currIn = nextIn->next;
+             nextIn = nextIn->next;
 
              // Write to the LCD AFTER processing has completed
              // handle adc input to work with pitch function
