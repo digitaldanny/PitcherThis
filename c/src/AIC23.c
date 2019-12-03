@@ -31,13 +31,13 @@ Uint16 nomicpowerup (void) {           // Power up all modules except microphone
     return (POWDCTL|AIC23MIC);
 }    
 Uint16 linput_volctl (Uint16 volume) { // Left Line Input Volume Control 
-    //return (LRS|LLINVCTL|volume);
-    return (LLINVCTL|volume);
+    return (LRS|LLINVCTL|volume);
+    //return (LLINVCTL|volume);
 }
 
 Uint16 rinput_volctl (Uint16 volume) { // Right Line Input Volume Control 
-    //return (RLS|RLINVCTL|volume);
-    return (RLINVCTL|volume);
+    return (RLS|RLINVCTL|volume);
+    //return (RLINVCTL|volume);
 }
 
 Uint16 lhp_volctl (Uint16 volume) {    // Left Headphone Volume Control
