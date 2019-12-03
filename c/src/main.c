@@ -177,8 +177,11 @@ kiss_fft_cpx cout[CFFT_SIZE]; // complex output
 #pragma DATA_SECTION(fftOutBuff,"CFFTdata4");
 kiss_fft_cpx fftOutBuff[CFFT_SIZE]; // complex output
 
-#pragma DATA_SECTION(overlayBuff,"CFFTdata5");
+#pragma DATA_SECTION(overlayBuff,"CFFTdata5_0x0800");
 float overlayBuff[CFFT_SIZE];
+
+#pragma DATA_SECTION(samplesOutBuff, "CFFTdata6_0x0800")
+float samplesOutBuff[CFFT_SIZE];
 
 kiss_fftr_cfg  kiss_fftr_state;
 kiss_fftr_cfg  kiss_fftri_state;
@@ -187,6 +190,7 @@ kiss_fftr_cfg  kiss_fftri_state;
 float * binFft;
 float * prevInPtr;
 float * currInPtr;
+float * samplesOutPtr;
 
 // PITCH SHIFTING
 volatile Uint16 robotEffectEn;
@@ -228,6 +232,7 @@ void main(void)
 
     currInPtr               = (float*)&rin1[0];
     prevInPtr               = (float*)&rin2[0];     // prev buff must be initialized to 0 for stft
+    samplesOutPtr           = (float*)&samplesOutBuff[0];
 
     robotEffectEn           = 0;
     // ------------------------------------------------------------------------
@@ -375,9 +380,23 @@ void main(void)
 
              // create mono samples by averaging left and right samples and store to the fft buffer
              for (int i = 0; i < CFFT_SIZE_X2_MASK; i+=2)
+             {
                  currInPtr[i>>1] = ((float)fftFrame->buffer[i] + (float)fftFrame->buffer[i+1])/2.0f;
+                 currInPtr[i>>1] *= hanningLUT[i>>2];
+             }
 
-             kiss_fftr(kiss_fftr_state, currInPtr, cout); // FFT
+             // construct the overlap buffer using 50% overlap of previous data and new data
+             // and apply the hanning window.
+             for (int i = 0; i < CFFT_SIZE; i++)
+             {
+                 if (i < CFFT_SIZE>>1)
+                     overlayBuff[i] = prevInPtr[i+(CFFT_SIZE>>1)] + currInPtr[i];
+                 else
+                     overlayBuff[i] = currInPtr[i];
+             }
+
+             //kiss_fftr(kiss_fftr_state, currInPtr, cout); // FFT
+             kiss_fftr(kiss_fftr_state, &overlayBuff[0], cout); // FFT
 
              // +----------------------------------------------------------------------------+
              //                               USER APP END
@@ -413,12 +432,12 @@ void main(void)
              //                               USER APP END
              // +----------------------------------------------------------------------------+
 
-             kiss_fftri(kiss_fftri_state, bins, currInPtr); // IFFT
+             kiss_fftri(kiss_fftri_state, bins, samplesOutPtr); // IFFT
 
              // output the fft results
              for (int i = 0; i < CFFT_SIZE_MIN_1; i++)
              {
-                 fftFrame->buffer[2*i]      = (int16)(currInPtr[i] * 0.02);    // left channel
+                 fftFrame->buffer[2*i]      = (int16)(samplesOutPtr[i] * 0.02); // left channel
                  fftFrame->buffer[2*i+1]    = fftFrame->buffer[2*i];           // right channel
              }
 

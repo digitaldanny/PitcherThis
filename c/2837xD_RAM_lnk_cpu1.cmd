@@ -113,8 +113,9 @@ PAGE 1 :
    //RAMGS11		   : origin = 0x017000, length = 0x001000
    RAMGS12         : origin = 0x018000, length = 0x001000	// used - CFFTdata4
    RAMGS13         : origin = 0x019000, length = 0x001000	// used - ebss
-   RAMGS14           : origin = 0x01A000, length = 0x001000	// used - CFFTdata5
-   RAMGS16           : origin = 0x01B000, length = 0x001000	// used - CFFTdata3
+   RAMGS14TOP      : origin = 0x01A000, length = 0x000800	// used - CFFTdata5_0x0800
+   RAMGS14BOT      : origin = 0x01A800, length = 0x000800	// used - CFFTdata6_0x0800
+   RAMGS16         : origin = 0x01B000, length = 0x001000	// used - CFFTdata3
 
    FLASHB          : origin = 0x082000, length = 0x002000	/* on-chip Flash */
 }
@@ -172,11 +173,12 @@ SECTIONS
 
     /* Test specific sections */
    DMAACCESSABLE 	: > RAMGS10,    PAGE = 1
-   CFFTdata1        : > RAMGS4,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
-   CFFTdata2        : > RAMGS5,    PAGE = 1   //, ALIGN = CFFT_ALIGNMENT
-   CFFTdata3        : > RAMGS16,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
-   CFFTdata4        : > RAMGS12,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
-   CFFTdata5        : > RAMGS14,    PAGE = 1  //, ALIGN = CFFT_ALIGNMENT
+   CFFTdata1        : > RAMGS4,    PAGE = 1
+   CFFTdata2        : > RAMGS5,    PAGE = 1
+   CFFTdata3        : > RAMGS16,    PAGE = 1
+   CFFTdata4        : > RAMGS12,    PAGE = 1
+   CFFTdata5_0x0800 : > RAMGS14TOP, PAGE = 1
+   CFFTdata6_0x0800 : > RAMGS14BOT, PAGE = 1
 
    .reset           : > RESET,     PAGE = 0, TYPE = DSECT /* not used, */
 }
