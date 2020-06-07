@@ -1,6 +1,6 @@
 # PITCHER THIS
 
-This repository contains files relating to the final project in the course Real-Time DSP Applications at the University of Florida. Each student had 2 weeks to model their project in MATLAB and implement the project on the microcontroller to demo in front of the class. My project consists of three frequency domain effects that can be layered on top of each other and adjusted in real time. The effects include a pitch shifter, an adjustable low-pass filter, and a robotization effect.
+This repository contains files relating to the final project in the course [Real-Time DSP Applications](http://www.add.ece.ufl.edu/4511/) at the University of Florida. Each student had 2 weeks to model their project in MATLAB and implement the project on the microcontroller to demo in front of the class. My project consists of three frequency domain effects that can be layered on top of each other and adjusted in real time. The effects include a pitch shifter, an adjustable low-pass filter, and a robotization effect.
 
 ## 1. Relevant Links
 
@@ -14,7 +14,7 @@ All effects implemented on the board involve a 1024 point FFT to get frequency b
 
 - **Pitch Shifter:** The pitch shifter effect uses an on-board potentiometer to shift FFT bin samples up or down before IFFT processing. Because the energy data in each bin is shifted, the resulting time-domain samples after IFFT processing is frequency shifted with the original time properties intact. This pitch shifting method does not take into account the way that vocal harmonics shift non-linearly as pitch increases and decreases. My result is a functional pitch shifter; however, a more convincing approach to natural pitch shifting would be to use the [Phase Vocoder](https://en.wikipedia.org/wiki/Phase_vocoder) algorithm.
 
-- **Adjustable Low-Pass Filter:** For one of the previous labs during the semester, my class was required to implemented a low pass filter using an FIR filter. However, this time-domain implementation of filtering was not easily configurable during runtime. The cutoff frequency for my final project's frequency-domain low pass filter could be controlled using a potentiometer on the board. The potentiometer's max voltage related to the 1024th frequency bin and the min voltage related to the 1st frequency bin. During runtime, all FFT bin values after a point defined by the potentiometer's voltage were zeroed out so that those frequencies would not appear in the IFFT results.
+- **Adjustable Low-Pass Filter:** For one of the previous labs during the semester, my class was required to implement a low pass filter using an FIR filter. However, this time-domain implementation of filtering was not easily configurable during runtime. The cutoff frequency for my final project's frequency-domain low pass filter could be controlled using a potentiometer on the board. The potentiometer's max voltage related to the 1024th frequency bin and the min voltage related to the 1st frequency bin. During runtime, all FFT bin values after a point defined by the potentiometer's voltage were zeroed out so that those frequencies would not appear in the IFFT results.
 
 - **Robotization:** This effect turns human vocals into a robot-like voice. In combination with the pitch shifter to deepen your voice, the user really sounds like they could take over the world! 
 
