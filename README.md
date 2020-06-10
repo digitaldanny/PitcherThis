@@ -28,9 +28,8 @@ The primary dev board used for this project is Texas Instrument's [TMS320F28379D
 **Codec**
 To handle sampling audio at 44.1 KHz, the C2000 dev board interfaced TI's [TLV320AIC23](https://www.ti.com/product/TLV320AIC23) codec via I2S.
 
-| ![Board assembly screenshots go here](image link here) | 
-|:--:| 
-| ***Figure 3.1-3.2:** Front and back of the hardware used during demo.* |
+![Board assembly screenshots go here](./images/hardware.PNG)
+***Figure 3.1-3.2:** Front and back of the hardware used during demo.* 
 
 ## 4. Additional Project Challenges
 
