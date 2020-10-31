@@ -6,9 +6,23 @@ This repository contains files relating to the final project in the course [Real
 
 For these demos, I use a _very_ cheap microphone provided to each student in the class. Please take note of the effect itself rather than the overall audio quality. 
 
-- [Pitch Shifter Demo](/demos/Pitch_Shifting.wav)
-- [Low-Pass Filter Demo](/demos/Low_Pass_Filter.wav)
-- [Robotization + Low Pitch Demo - this one's my favorite! :)](/demos/Robotization_And_Low_Pitch.wav)
+#### 1.1 - Pitch Shifter Demo
+<audio controls="controls">
+  <source type="audio/wav" src="/demos/Pitch_Shifting.wav"></source>
+  <p>Your browser does not support the audio element.</p>
+</audio>
+
+#### 1.2 - Low-Pass Filter Demo
+<audio controls="controls">
+  <source type="audio/wav" src="/demos/Low_Pass_Filter.wav"></source>
+  <p>Your browser does not support the audio element.</p>
+</audio>
+
+#### 1.3 - Robotization + Low Pitch Demo - this one's my favorite! :)
+<audio controls="controls">
+  <source type="audio/wav" src="/demos/Robotization_And_Low_Pitch.wav"></source>
+  <p>Your browser does not support the audio element.</p>
+</audio>
 
 ## 2. Software
 
